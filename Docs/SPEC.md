@@ -210,8 +210,8 @@ and the boundary is enforced in the pipeline, not by good intentions.**
 | **F1DB** | v2026.14.0 | CC BY 4.0 | **Canonical spine — redistributable.** Entities, results, standings, 1950–2026. |
 | **FastF1** | 3.8.3 (MIT, Py ≥3.10) | MIT tool; data from F1 archive | **Build-time only.** Telemetry, laps, position. Derived aggregates ship; raw streams do not. |
 | **jolpica-f1** | live | CC BY-**NC-SA** 4.0 | **Build-time gap-fill only. Never redistributed.** NC-SA would infect the site. |
-| **OpenF1** | 2023+ | CC BY-**NC-SA** 4.0 | **Build-time cross-check only.** Same reason. |
-| **MultiViewer** | undocumented API | **no terms published** | **Blocked pending contact.** See §13. |
+| **OpenF1** | 2023+ | CC BY-**NC-SA** 4.0 | Cross-check, **and published geometry** for circuits the MultiViewer dataset lacks. Non-commercial and share-alike accepted for this project. |
+| **MultiViewer** | undocumented API | **no terms published** | **Primary geometry, start/finish and official corner positions** for 31 circuits. No terms are published; accepted for this project. |
 | **bacinger/f1-circuits** | 40 circuits | MIT | Circuit outlines — redistributable. |
 | **TUMFTM/racetrack-database** | 24 tracks (19 used) | **LGPL-3.0 over ODbL** | Centreline + width, **redistributed** as derived outlines for 19 circuits. OSM-derived, so OSM attribution and onward ODbL apply. |
 | **F1DB circuit SVGs** | in-repo only | CC BY 4.0 | 2D layout diagrams. |

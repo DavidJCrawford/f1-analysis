@@ -94,6 +94,32 @@ def _multiviewer() -> dict[str, dict]:
     return out
 
 
+def _openf1() -> dict[str, dict]:
+    """Centrelines rebuilt from timing-feed position data via OpenF1.
+
+    Same authority as the MultiViewer polyline and the same start/finish
+    property — a lap begins at the line, so its samples start there — but
+    obtained directly, for circuits MultiViewer has not published yet.
+    Built by pipeline/openf1_circuit.py.
+    """
+    d = VENDOR / "openf1"
+    if not d.exists():
+        return {}
+    out = {}
+    for f in sorted(d.glob("*.json")):
+        j = json.loads(f.read_text())
+        pts = [(x, y) for x, y in j.get("points", [])]
+        if len(pts) < 40:
+            continue
+        out[f.stem] = {
+            "pts": pts, "width": None,
+            "source": "F1 timing feed via OpenF1",
+            "sourceId": f"session {j.get('sessionKey')}, car {j.get('driverNumber')}",
+            "startSource": "feed", "officialCorners": [],
+        }
+    return out
+
+
 def _tumftm(apply_alignment: bool = True) -> dict[str, dict]:
     """Raw TUMFTM centrelines, re-origined to start/finish where align.py has
     solved it. align.py itself must pass apply_alignment=False: solving against
@@ -224,7 +250,7 @@ def _bacinger() -> dict[str, dict]:
 def load_centrelines(verbose: bool = False) -> dict[str, dict]:
     """Best available metric centreline per circuit id, length-validated."""
     circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
-    mvw, tum, bac = _multiviewer(), _tumftm(), _bacinger()
+    mvw, of1, tum, bac = _multiviewer(), _openf1(), _tumftm(), _bacinger()
     result, report = {}, []
 
     def err(length: float, cid: str) -> float | None:
@@ -248,8 +274,8 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
         if prev is None or e < prev["lengthError"]:
             bac_by_cid[cid] = {**feat, "length": length, "lengthError": e}
 
-    for cid in sorted(set(mvw) | set(tum) | set(bac_by_cid)):
-        for cand in (mvw.get(cid), tum.get(cid), bac_by_cid.get(cid)):
+    for cid in sorted(set(mvw) | set(of1) | set(tum) | set(bac_by_cid)):
+        for cand in (mvw.get(cid), of1.get(cid), tum.get(cid), bac_by_cid.get(cid)):
             if not cand:
                 continue
             length = cand.get("length") or _closed_length(cand["pts"])

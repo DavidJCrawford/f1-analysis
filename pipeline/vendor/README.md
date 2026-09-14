@@ -50,3 +50,22 @@ projected into the same frame exactly. TUMFTM centrelines sit in an
 undocumented local metric frame with no geo-reference, so a lat/lon cannot be
 placed on them without first solving for the transform — those circuits keep
 the heuristic.
+
+## openf1/
+
+Circuit centrelines rebuilt from timing-feed position data via
+[OpenF1](https://openf1.org), **CC BY-NC-SA 4.0**, for circuits MultiViewer has
+not published yet. Built by `pipeline/openf1_circuit.py`.
+
+A lap begins when the car crosses the start/finish line, so its position samples
+start there — the same property that makes the MultiViewer polyline
+authoritative, obtained directly. Several clean laps from one driver are merged
+on a shared lap-fraction grid and lightly smoothed; the raw merge measures 23%
+long because ~3.7 Hz sampling noise accumulates over a thousand short segments.
+
+**Licence note.** SPEC §6.1 previously confined OpenF1 to a build-time role
+whose values were never written to a published artefact. Geometry derived from
+it is now published, so that is no longer accurate and the spec has been
+corrected. CC BY-NC-SA carries both a non-commercial restriction and
+share-alike; the project owner has accepted this for a non-commercial personal
+project.

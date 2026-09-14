@@ -1,6 +1,12 @@
 ---
 interface Props { manifest: Record<string, unknown>; base: string; label: string; }
 const { manifest, base, label } = Astro.props;
+
+/** Rendered server-side, not built in script: Astro scopes component CSS with a
+ *  data-astro-cid attribute, and elements created via createElement never get
+ *  it — so every rule below would silently miss them. */
+const drivers = (manifest.drivers ?? []) as
+  { n: number; code: string; name: string; team: string; colour: string }[];
 ---
 <div class="replay-launch">
   <button class="play" type="button" data-replay-open aria-haspopup="dialog">
@@ -48,7 +54,19 @@ const { manifest, base, label } = Astro.props;
            data-scrub aria-label="Race position" />
   </div>
 
-  <ol class="strip" data-strip aria-label="Running order"></ol>
+  <ol class="strip" data-strip aria-label="Running order">
+    {drivers.map((d, i) => (
+      <li>
+        <button type="button" data-car={i} aria-pressed="false"
+                style={`border-color:${d.colour}`} title={`${d.name} — ${d.team}`}>
+          <span class="pos"></span>
+          <span class="car">{d.n}</span>
+          <span class="code">{d.code}</span>
+          <span class="down"></span>
+        </button>
+      </li>
+    ))}
+  </ol>
 </div>
 
 <style>
@@ -116,34 +134,38 @@ const { manifest, base, label } = Astro.props;
     scrollbar-width: thin;
   }
   .strip li { flex: 0 0 auto; }
+  /* The team colour is the box edge. Behind the text it fought the numerals;
+     as a border it identifies the car without competing with them. */
   .strip button {
-    display: flex; align-items: center; gap: 9px;
-    background: transparent; border: 1px solid transparent;
-    border-radius: var(--ks-radius-sm); padding: 5px 9px 5px 6px;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--ks-instrument-deep);
+    border: 2.5px solid transparent; border-radius: 5px;
+    padding: 5px 10px 5px 7px;
     cursor: pointer; font: inherit; color: var(--ks-instrument-text);
-    transition: border-color var(--ks-quick) var(--ks-ease), background var(--ks-quick) var(--ks-ease);
+    transition: background var(--ks-quick) var(--ks-ease), transform var(--ks-quick) var(--ks-ease);
   }
-  .strip button:hover { background: var(--ks-instrument); border-color: var(--ks-instrument-rule); }
-  .strip button:focus-visible { outline: 2px solid var(--ks-patina); outline-offset: 1px; }
-  .strip button[aria-pressed='true'] { border-color: var(--ks-kinpaku); background: var(--ks-instrument-raised); }
+  .strip button:hover { background: var(--ks-instrument); transform: translateY(-1px); }
+  .strip button:focus-visible { outline: 2px solid var(--ks-patina); outline-offset: 2px; }
+  .strip button[aria-pressed='true'] {
+    background: var(--ks-instrument-raised);
+    box-shadow: 0 0 0 1.5px var(--ks-kinpaku);
+  }
   .strip .pos {
     font-family: var(--ks-mono), monospace; font-size: 10px;
-    color: var(--ks-instrument-muted); min-width: 15px; text-align: right;
+    color: var(--ks-instrument-muted); min-width: 14px; text-align: right;
     font-variant-numeric: var(--f1-numeric);
-    padding-right: 2px; border-right: 1px solid var(--ks-instrument-rule);
+    padding-right: 7px; border-right: 1px solid var(--ks-instrument-rule);
   }
-  .strip .dot {
-    width: 20px; height: 20px; border-radius: 50%;
-    display: grid; place-items: center;
-    font-size: 9.5px; font-weight: 700; color: #fff;
+  .strip .car {
+    font-size: 12px; font-weight: 700;
     font-variant-numeric: var(--f1-numeric);
-    text-shadow: 0 0 2px rgba(0,0,0,.55);
+    min-width: 17px; text-align: right;
   }
-  .strip .code { font-size: 11px; letter-spacing: .07em; font-weight: 500; }
+  .strip .code { font-size: 11px; letter-spacing: .07em; color: var(--ks-instrument-muted); }
   .strip .down { font-size: 9.5px; color: var(--ks-instrument-muted); font-family: var(--ks-mono), monospace; }
 
   @media (prefers-reduced-motion: reduce) {
-    .play:hover { transform: none; }
+    .play:hover, .strip button:hover { transform: none; }
   }
 </style>
 
@@ -212,23 +234,10 @@ const { manifest, base, label } = Astro.props;
     };
 
     // ── strip ───────────────────────────────────────────────────────────────
-    let chips: HTMLButtonElement[] = [];
+    const chips = [...strip.querySelectorAll<HTMLButtonElement>('button[data-car]')];
     function buildStrip() {
-      strip.innerHTML = '';
-      chips = man.drivers.map((d, i) => {
-        const li = document.createElement('li');
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.setAttribute('aria-pressed', 'false');
-        b.innerHTML =
-          `<span class="pos"></span>` +
-          `<span class="dot" style="background:${d.colour}">${d.n}</span>` +
-          `<span class="code">${d.code}</span><span class="down"></span>`;
-        b.title = `${d.name} — ${d.team}`;
-        b.addEventListener('click', () => { focus = focus === i ? -1 : i; paint(); });
-        li.appendChild(b); strip.appendChild(li);
-        return b;
-      });
+      chips.forEach((b, i) =>
+        b.addEventListener('click', () => { focus = focus === i ? -1 : i; paint(); }));
     }
 
     function updateStrip(f: number) {

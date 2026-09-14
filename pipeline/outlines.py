@@ -54,6 +54,7 @@ for cid, v in lines.items():
         "spacing": round(v["spacing"], 2),
         "lengthError": round(v["lengthError"], 5),
         "source": v["source"], "sourceId": v["sourceId"],
+        "startSource": v.get("startSource", "trace"),
     }
 
 (DATA / "outlines.json").write_text(

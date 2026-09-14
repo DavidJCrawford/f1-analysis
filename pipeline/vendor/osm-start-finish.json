@@ -1,0 +1,74 @@
+{
+ "austin": {
+  "lat": 30.131893,
+  "lon": -97.6398291,
+  "name": null,
+  "osmNodeId": 7909207460
+ },
+ "buenos-aires": {
+  "lat": -34.6945638,
+  "lon": -58.4616652,
+  "name": null,
+  "osmNodeId": 9311100671
+ },
+ "hockenheimring": {
+  "lat": 49.3277648,
+  "lon": 8.5658357,
+  "name": "Start-Ziel",
+  "osmNodeId": 395005281
+ },
+ "istanbul": {
+  "lat": 40.95222,
+  "lon": 29.4063884,
+  "name": null,
+  "osmNodeId": 1893855303
+ },
+ "lusail": {
+  "lat": 25.4890496,
+  "lon": 51.4497373,
+  "name": null,
+  "osmNodeId": 14134811030
+ },
+ "melbourne": {
+  "lat": -37.8500562,
+  "lon": 144.9689843,
+  "name": null,
+  "osmNodeId": 9123374386
+ },
+ "monaco": {
+  "lat": 43.7350269,
+  "lon": 7.4212652,
+  "name": "Depart Grand Prix de Monaco",
+  "osmNodeId": 4937755860
+ },
+ "nurburgring": {
+  "lat": 50.3339987,
+  "lon": 6.9452952,
+  "name": "N\u00fcrburgring Start-Finish",
+  "osmNodeId": 3099078401
+ },
+ "paul-ricard": {
+  "lat": 43.251187,
+  "lon": 5.7930593,
+  "name": null,
+  "osmNodeId": 2255501646
+ },
+ "sepang": {
+  "lat": 2.7607442,
+  "lon": 101.7383705,
+  "name": "Start-Finish",
+  "osmNodeId": 1578189278
+ },
+ "sochi": {
+  "lat": 43.3999041,
+  "lon": 39.9522907,
+  "name": null,
+  "osmNodeId": 8164671075
+ },
+ "spa-francorchamps": {
+  "lat": 50.4326896,
+  "lon": 5.96272,
+  "name": null,
+  "osmNodeId": 1404684961
+ }
+}

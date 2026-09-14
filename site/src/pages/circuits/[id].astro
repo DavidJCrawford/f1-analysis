@@ -41,7 +41,7 @@ const last = held[0];
         <CircuitOutline
           outline={o} name={c.name} height={440} stroke={1.75}
           corners={prof?.corners ?? []} lapLength={prof?.length}
-          showStart={prof?.startOnStraight ?? false}
+          showStart={prof?.startKnown ?? false}
         />
       </div>
 

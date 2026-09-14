@@ -36,3 +36,17 @@ OpenStreetMap contributors prominently, and offer the derived geometry
 Produced Work. The accuracy caveat is theirs too — quality "varies greatly
 depending on the location", which is what the length-validation gate in
 `geo.py` exists to catch.
+
+## osm-start-finish.json
+
+Start/finish line positions, queried from OpenStreetMap as nodes tagged
+`raceway=start-finish` within 2.5 km of each circuit, © OpenStreetMap
+contributors, **ODbL**.
+
+Only 12 of 37 circuits carry the tag, so this supplements rather than replaces
+the trace-start heuristic. It is applied only to bacinger-sourced circuits,
+where the centreline is geo-referenced and an OSM latitude/longitude can be
+projected into the same frame exactly. TUMFTM centrelines sit in an
+undocumented local metric frame with no geo-reference, so a lat/lon cannot be
+placed on them without first solving for the transform — those circuits keep
+the heuristic.

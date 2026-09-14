@@ -79,6 +79,8 @@ export interface Profile {
   /** Signed display curvature in 1/km. Positive is a left turn; 0 is straight. */
   k: number[];
   corners: Corner[]; detected: number; officialTurns: number | null;
-  /** False when the trace begins on a curve, so start/finish is unknown. */
-  startOnStraight: boolean;
+  /** False when start/finish cannot be located, so no chequer is drawn. */
+  startKnown: boolean;
+  /** 'osm' when taken from a tagged start/finish line, 'trace' when inferred. */
+  startSource: 'osm' | 'trace';
 }

@@ -75,12 +75,44 @@ def _tumftm() -> dict[str, dict]:
         if len(pts) < 40:
             continue
         out[cid] = {"pts": pts, "width": width, "source": "TUMFTM/racetrack-database (LGPL-3.0)",
-                    "sourceId": fname}
+                    "sourceId": fname, "startSource": "trace"}
     return out
+
+
+def _start_finish() -> dict[str, dict]:
+    f = VENDOR / "osm-start-finish.json"
+    return json.loads(f.read_text()) if f.exists() else {}
+
+
+def _reorigin(pts: list[tuple[float, float]], target: tuple[float, float]) -> list[tuple[float, float]]:
+    """Rotate a closed polyline so it begins at the point nearest `target`.
+
+    Everything downstream measures distance from index 0, so this makes lap
+    distances - and the profile's x axis - run from the real start/finish line
+    rather than from wherever the trace happened to begin.
+    """
+    best_i, best_t, best_d2 = 0, 0.0, float("inf")
+    n = len(pts)
+    for i in range(n):
+        ax, ay = pts[i]
+        bx, by = pts[(i + 1) % n]
+        vx, vy = bx - ax, by - ay
+        l2 = vx * vx + vy * vy
+        tt = 0.0 if not l2 else max(0.0, min(1.0, ((target[0] - ax) * vx + (target[1] - ay) * vy) / l2))
+        qx, qy = ax + vx * tt, ay + vy * tt
+        d2 = (target[0] - qx) ** 2 + (target[1] - qy) ** 2
+        if d2 < best_d2:
+            best_i, best_t, best_d2 = i, tt, d2
+    ax, ay = pts[best_i]
+    bx, by = pts[(best_i + 1) % n]
+    snap = (ax + (bx - ax) * best_t, ay + (by - ay) * best_t)
+    tail = pts[best_i + 1:] + pts[:best_i + 1]
+    return [snap] + tail
 
 
 def _bacinger() -> dict[str, dict]:
     gj = json.loads((VENDOR / "f1-circuits.geojson").read_text())
+    starts = _start_finish()
     # A place name can name several circuits — Las Vegas, Madrid and Barcelona
     # each cover two or three. Collect every candidate and let the caller pick
     # the one whose recorded length matches the geometry.
@@ -104,8 +136,18 @@ def _bacinger() -> dict[str, dict]:
         pts = [((c[0] - lon0) * kx, (c[1] - lat0) * ky) for c in co]
         if math.dist(pts[0], pts[-1]) < 1.0:
             pts = pts[:-1]
+
+        # Where OSM records the start/finish line, begin the lap there. This
+        # trace is geo-referenced, so the node projects into the same frame.
+        start_src = "trace"
+        for cand in cands:
+            sf = starts.get(cand)
+            if sf:
+                pts = _reorigin(pts, ((sf["lon"] - lon0) * kx, (sf["lat"] - lat0) * ky))
+                start_src = "osm"
+                break
         out[p["id"]] = {"pts": pts, "width": None, "source": "bacinger/f1-circuits (MIT)",
-                        "sourceId": p["id"], "candidates": cands,
+                        "sourceId": p["id"], "candidates": cands, "startSource": start_src,
                         "declaredLength": p.get("length")}
     return out
 
@@ -157,7 +199,9 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
         used = [r for r in report if r[2] == "used"]
         rej = [r for r in report if r[2] == "REJECTED"]
         tumn = sum(1 for cid, v in result.items() if v["source"].startswith("TUMFTM"))
-        print(f"{len(result)} centrelines: {tumn} TUMFTM, {len(result)-tumn} bacinger")
+        osmn = sum(1 for v in result.values() if v.get("startSource") == "osm")
+        print(f"{len(result)} centrelines: {tumn} TUMFTM, {len(result)-tumn} bacinger"
+              f" · {osmn} re-origined to an OSM start/finish line")
         mean_sp = sum(v["spacing"] for v in result.values()) / len(result)
         print(f"mean point spacing {mean_sp:.1f} m  "
               f"(TUMFTM circuits ~{sum(v['spacing'] for v in result.values() if v['source'].startswith('TUMFTM'))/max(tumn,1):.1f} m)")

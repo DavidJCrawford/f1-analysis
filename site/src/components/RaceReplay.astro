@@ -31,6 +31,7 @@ const drivers = (manifest.drivers ?? []) as
   <div class="stage">
     <canvas data-canvas></canvas>
     <p class="loading mono" data-loading>Loading positions…</p>
+    <p class="countdown num" data-countdown hidden aria-live="assertive"></p>
     <div class="zoom">
       <button class="icon sm" type="button" data-zoom="-1" aria-label="Zoom out">−</button>
       <button class="icon sm" type="button" data-zoom="1" aria-label="Zoom in">+</button>
@@ -44,8 +45,8 @@ const drivers = (manifest.drivers ?? []) as
     <label class="speed">
       <span class="visually-hidden">Speed</span>
       <select data-speed>
-        <option value="10">10×</option>
-        <option value="30" selected>30×</option>
+        <option value="10" selected>10×</option>
+        <option value="30">30×</option>
         <option value="60">60×</option>
         <option value="120">120×</option>
       </select>
@@ -119,6 +120,16 @@ const drivers = (manifest.drivers ?? []) as
   .loading[hidden] { display: none; }
   .zoom { position: absolute; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
 
+  .countdown {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    margin: 0; pointer-events: none;
+    font-family: var(--ks-font-display), sans-serif;
+    font-size: clamp(5rem, 18vw, 12rem); font-weight: 200; line-height: 1;
+    color: var(--ks-instrument-text);
+    text-shadow: 0 2px 40px rgba(0, 0, 0, .6);
+  }
+  .countdown[hidden] { display: none; }
+
   .controls { border-top: 1px solid var(--ks-instrument-rule); }
   .speed select {
     background: transparent; color: var(--ks-instrument-text);
@@ -188,6 +199,7 @@ const drivers = (manifest.drivers ?? []) as
     const speedSel = root.querySelector<HTMLSelectElement>('[data-speed]')!;
     const readout = root.querySelector<HTMLElement>('[data-readout]')!;
     const loading = root.querySelector<HTMLElement>('[data-loading]')!;
+    const countdown = root.querySelector<HTMLElement>('[data-countdown]')!;
     const playBtn = root.querySelector<HTMLButtonElement>('[data-act="play"]')!;
 
     const N = man.cars;
@@ -265,6 +277,51 @@ const drivers = (manifest.drivers ?? []) as
       canvas.height = Math.max(1, Math.round(r.height * dpr));
     }
 
+    /**
+     * The chequer, laid across the track at the line. Index 0 of the polyline
+     * is the start/finish line — a lap begins where the car crosses it — so the
+     * marker goes there, squared to the local tangent. Sizes divide by `unit`
+     * so the band stays a constant size on screen as the camera zooms.
+     */
+    function drawStartLine(unit: number, dpr: number) {
+      const tr = man.track;
+      if (!tr || tr.length < 6) return;
+      const [x0, y0] = tr[0];
+      const a = tr[3], b = tr[tr.length - 3];
+      let tx = a[0] - b[0], ty = a[1] - b[1];
+      const tl = Math.hypot(tx, ty) || 1;
+      tx /= tl; ty /= tl;
+      const nx = -ty, ny = tx;                    // across the track
+
+      const cell = 5 * dpr / unit;
+      const COLS = 6, ROWS = 2;
+      const half = (cell * COLS) / 2;
+
+      const quad = (a0: number, a1: number, b0: number, b1: number) => {
+        ctx.beginPath();
+        ctx.moveTo(x0 + nx * a0 + tx * b0, y0 + ny * a0 + ty * b0);
+        ctx.lineTo(x0 + nx * a1 + tx * b0, y0 + ny * a1 + ty * b0);
+        ctx.lineTo(x0 + nx * a1 + tx * b1, y0 + ny * a1 + ty * b1);
+        ctx.lineTo(x0 + nx * a0 + tx * b1, y0 + ny * a0 + ty * b1);
+        ctx.closePath();
+        ctx.fill();
+      };
+
+      const pad = cell * 0.28;
+      ctx.fillStyle = '#fff';
+      quad(-half - pad, half + pad, -cell - pad, cell + pad);
+      ctx.fillStyle = '#000';
+      quad(-half, half, -cell, cell);
+      ctx.fillStyle = '#fff';
+      for (let c = 0; c < COLS; c++) {
+        for (let r = 0; r < ROWS; r++) {
+          if ((c + r) % 2 !== 0) continue;
+          const a0 = -half + c * cell;
+          quad(a0, a0 + cell, (r - 1) * cell, r * cell);
+        }
+      }
+    }
+
     function paint() {
       if (!xy) return;
       const w = canvas.width, h = canvas.height;
@@ -292,6 +349,7 @@ const drivers = (manifest.drivers ?? []) as
         ctx.lineWidth = 2 / unit;
         ctx.strokeStyle = 'rgba(255,255,255,.32)';
         ctx.stroke();
+        drawStartLine(unit, dpr);
       }
 
       // Back of the field first, so leaders sit on top.
@@ -353,13 +411,14 @@ const drivers = (manifest.drivers ?? []) as
     }
 
     root.querySelector('[data-act="restart"]')!.addEventListener('click', () => {
-      frame = 0; dir = 1; paint();
+      stopCountdown(); frame = 0; dir = 1; paint();
     });
     root.querySelector('[data-act="back"]')!.addEventListener('click', () => {
-      dir = -1; setPlaying(true);
+      stopCountdown(); dir = -1; setPlaying(true);
     });
-    playBtn.addEventListener('click', () => { dir = 1; setPlaying(!playing); });
+    playBtn.addEventListener('click', () => { stopCountdown(); dir = 1; setPlaying(!playing); });
     scrub.addEventListener('input', () => {
+      stopCountdown();
       frame = (Number(scrub.value) / 1000) * (man.frames - 1);
       setPlaying(false); paint();
     });
@@ -368,6 +427,25 @@ const drivers = (manifest.drivers ?? []) as
         zoom = Math.max(1, Math.min(14, zoom * (Number(b.dataset.zoom) > 0 ? 1.35 : 1 / 1.35)));
         paint();
       }));
+
+    // ── countdown ───────────────────────────────────────────────────────────
+    // Only before the opening lap, and any interaction cancels it — a count
+    // that ran again on every resume would be an obstacle rather than a cue.
+    let countToken = 0;
+    function stopCountdown() { countToken++; countdown.hidden = true; }
+
+    async function runCountdown(from = 5) {
+      const token = ++countToken;
+      for (let i = from; i > 0; i--) {
+        if (token !== countToken || root!.hidden) return false;
+        countdown.textContent = String(i);
+        countdown.hidden = false;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      if (token !== countToken || root!.hidden) return false;
+      countdown.hidden = true;
+      return true;
+    }
 
     // ── open / close ────────────────────────────────────────────────────────
     async function open() {
@@ -378,10 +456,11 @@ const drivers = (manifest.drivers ?? []) as
       await load();
       frame = 0; zoom = 4.5; focus = -1;
       paint();
-      if (!reduced) { dir = 1; setPlaying(true); }
       playBtn.focus();
+      if (!reduced && await runCountdown()) { dir = 1; setPlaying(true); }
     }
     function close() {
+      stopCountdown();
       setPlaying(false);
       root!.hidden = true;
       document.body.style.overflow = '';
@@ -393,7 +472,7 @@ const drivers = (manifest.drivers ?? []) as
     addEventListener('keydown', (e) => {
       if (root!.hidden) return;
       if (e.key === 'Escape') close();
-      if (e.key === ' ') { e.preventDefault(); dir = 1; setPlaying(!playing); }
+      if (e.key === ' ') { e.preventDefault(); stopCountdown(); dir = 1; setPlaying(!playing); }
       if (e.key === 'ArrowLeft') { setPlaying(false); frame = Math.max(0, frame - 20); paint(); }
       if (e.key === 'ArrowRight') { setPlaying(false); frame = Math.min(man.frames - 1, frame + 20); paint(); }
     });

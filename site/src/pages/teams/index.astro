@@ -1,19 +1,20 @@
 ---
 import Base from '@layouts/Base.astro';
-import { constructors } from '@lib/data';
+import { constructors, seasons } from '@lib/data';
 import { u } from '@lib/url';
 import { int } from '@lib/format';
 
 const all = constructors();
 const active = all.filter((c) => (c.entries ?? 0) > 0);
+const year = seasons()[0]!.year;
 ---
 <Base title="Teams" description="Every constructor to have entered a Formula 1 World Championship race.">
   <div class="wrap section" data-pagefind-body>
-    <p class="eyebrow">Index</p>
+    <p class="eyebrow">Season {year}</p>
     <h1 class="headline" style="margin-top:.2em">Teams</h1>
     <p class="lead" style="margin-top:1em">
-      {all.length} constructors, ordered by race entries. Lineage matters here: a team that
-      was renamed keeps one page and one URL.
+      The {all.length} constructors on the {year} grid. Totals below are career figures,
+      so a team that was renamed carries its full lineage.
     </p>
 
     <div class="table-scroll" style="margin-top:2.6rem">

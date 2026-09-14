@@ -2,118 +2,100 @@
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
-import { meta, seasons, circuits, outline, TIER_LABEL } from '@lib/data';
+import { counts, seasons, season, circuits, outline, meta } from '@lib/data';
 import { u } from '@lib/url';
-import { int } from '@lib/format';
+import { int, shortDate } from '@lib/format';
 
+const c = counts();
+const year = seasons()[0]!.year;
+const s = season(year);
 const m = meta();
-const latest = seasons().at(-1)!;
-const HERO = ['monza', 'spa-francorchamps', 'monaco', 'silverstone', 'suzuka', 'interlagos'];
-const heroCircuits = HERO.map((id) => ({
-  circuit: circuits().find((c) => c.id === id)!,
-  outline: outline(id)!,
-})).filter((h) => h.circuit && h.outline);
 
-const TIERS = [
-  { key: 'archival',  years: '1950–1995' },
-  { key: 'timing',    years: '1996–2017' },
-  { key: 'telemetry', years: '2018–2022' },
-  { key: 'modern',    years: '2023–2026' },
-] as const;
+const HERO = ['monza', 'spa-francorchamps', 'monaco', 'silverstone', 'suzuka', 'interlagos'];
+const gallery = HERO
+  .map((id) => ({ circuit: circuits().find((x) => x.id === id), outline: outline(id) }))
+  .filter((h): h is { circuit: NonNullable<typeof h.circuit>; outline: NonNullable<typeof h.outline> } =>
+    Boolean(h.circuit && h.outline));
+
+const next = s.races.find((r) => r.date > m.dataAsOf);
+const last = [...s.races].reverse().find((r) => r.date <= m.dataAsOf);
+const leader = s.driverStandings[0];
 ---
 <Base title="F1 Analysis">
   <div class="wrap section">
-    <p class="eyebrow">Formula 1 · {latest.year - 1949} seasons</p>
+    <p class="eyebrow">Formula 1 · Season {year}</p>
     <h1 class="display" style="margin-top:.2em">F1 Analysis</h1>
     <p class="lead" style="margin-top:1.2em">
-      A static, editorial encyclopaedia of Formula 1. Every circuit, team and race gets one
-      designed page and one permanent URL — and, where the data exists, a real 3D track.
+      The {year} Formula 1 season, circuit by circuit. Every round and every track
+      gets one designed page and one permanent URL, built from the official timing
+      feed.
     </p>
   </div>
 
   <div class="wrap">
     <hr class="rule" />
     <div class="stats">
-      <Stat label="Seasons"      value={int(m.counts.seasons)} />
-      <Stat label="Races"        value={int(m.counts.races)} />
-      <Stat label="Circuits"     value={int(m.counts.circuits)} />
-      <Stat label="Constructors" value={int(m.counts.constructors)} />
-      <Stat label="Drivers"      value={int(m.counts.drivers)} />
-      <Stat label="Results"      value={int(m.counts.results)} />
+      <Stat label="Rounds" value={int(c.races)} />
+      <Stat label="Run so far" value={int(c.held)} />
+      <Stat label="Circuits" value={int(c.circuits)} />
+      <Stat label="Teams" value={int(c.constructors)} />
+      <Stat label="Classifications" value={int(c.results)} />
     </div>
     <hr class="rule" />
   </div>
 
   <section class="wrap section">
+    <div class="two-up">
+      <div>
+        <h2 class="eyebrow">Championship</h2>
+        {leader && (
+          <p class="lead" style="margin-top:.8em">
+            <strong>{leader.driver}</strong> leads on <span class="num">{leader.points}</span> points.{' '}
+            <a href={u(`/seasons/${year}/`)}>Full standings</a>.
+          </p>
+        )}
+      </div>
+      <div>
+        <h2 class="eyebrow">{next ? 'Next round' : 'Latest round'}</h2>
+        {(next ?? last) && (
+          <p class="lead" style="margin-top:.8em">
+            <a href={u(`/races/${year}/${(next ?? last)!.round}/`)}>{(next ?? last)!.shortName}</a>
+            <span class="muted num"> · {shortDate((next ?? last)!.date)}</span>
+          </p>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap section">
     <h2 class="eyebrow">Circuits</h2>
     <div class="circuit-row">
-      {heroCircuits.map(({ circuit, outline }) => (
+      {gallery.map(({ circuit, outline }) => (
         <a class="circuit-cell plain" href={u(`/circuits/${circuit.id}/`)}>
           <CircuitOutline outline={outline} name={circuit.name} height={104} />
           <span class="mono">{circuit.name}</span>
         </a>
       ))}
     </div>
-    <p style="margin-top:2rem"><a href={u('/circuits/')}>All {m.counts.circuits} circuits</a></p>
+    <p style="margin-top:2rem"><a href={u('/circuits/')}>All {c.circuits} circuits</a></p>
   </section>
 
   <section class="wrap section">
-    <h2 class="title-lg">Coverage is a designed system</h2>
+    <h2 class="title-lg">Built from the timing feed</h2>
     <p class="lead" style="margin-top:.8em">
-      Telemetry begins in 2018. That leaves most of the sport's history without lap data,
-      so each era gets its own template and its own charts — never the modern page with
-      empty panels where the data should be.
-    </p>
-    <div class="table-scroll" style="margin-top:2rem">
-      <table>
-        <thead>
-          <tr><th>Tier</th><th>Years</th><th class="n">Races</th><th>What exists</th></tr>
-        </thead>
-        <tbody>
-          {TIERS.map((t) => (
-            <tr>
-              <td><span class="title">{TIER_LABEL[t.key]}</span></td>
-              <td class="num">{t.years}</td>
-              <td class="n">{int(m.tiers[t.key])}</td>
-              <td class="muted">{{
-                archival: 'Results, grid, championship, lineage',
-                timing: 'Lap charts, race trace, stints, pit analysis',
-                telemetry: 'Speed traces, mini-sectors, 3D replay',
-                modern: 'Cross-source enrichment',
-              }[t.key]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="wrap section">
-    <h2 class="title-lg">Seasons</h2>
-    <p style="margin-top:1rem">
-      <a href={u(`/seasons/${latest.year}/`)}>{latest.year}</a> is the current season.
-      <a href={u('/seasons/')}>Browse all {m.counts.seasons}</a>.
+      Circuit geometry, corner positions and start/finish lines come from Formula 1's
+      own timing data rather than traced maps — so a corner is where the corner is,
+      and the chequer is on the actual line.
     </p>
   </section>
 </Base>
 
 <style>
-  .stats {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: clamp(18px, 3vw, 40px); padding-block: 26px;
-  }
-  /* Explicit column counts rather than auto-fit: six items must not wrap 5 + 1. */
-  .circuit-row {
-    display: grid; grid-template-columns: repeat(2, 1fr);
-    gap: clamp(18px, 3vw, 36px); margin-top: 1.4rem;
-  }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px, 3vw, 40px); padding-block: 26px; }
+  .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(24px, 4vw, 56px); }
+  .circuit-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(18px, 3vw, 36px); margin-top: 1.4rem; }
   @media (width >= 560px) { .circuit-row { grid-template-columns: repeat(3, 1fr); } }
   @media (width >= 1000px) { .circuit-row { grid-template-columns: repeat(6, 1fr); } }
-  .circuit-cell {
-    display: flex; flex-direction: column; align-items: center; gap: 14px;
-    color: var(--ks-ink); text-align: center;
-    transition: transform var(--ks-quick) var(--ks-ease), color var(--ks-quick) var(--ks-ease);
-  }
+  .circuit-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--ks-ink); text-align: center; transition: transform var(--ks-quick) var(--ks-ease); }
   .circuit-cell:hover { transform: translateY(-1px); }
-  .circuit-cell:hover .mono { color: var(--ks-ink); }
 </style>

@@ -1,17 +1,19 @@
 ---
 import { Font } from 'astro:assets';
 import { u } from '@lib/url';
+import { seasons } from '@lib/data';
 import DataStamp from '@components/DataStamp.astro';
 import '@styles/base.css';
 
 interface Props { title: string; description?: string; eyebrow?: string; }
 const { title, description = 'Every race, circuit and team in Formula 1 — one permanent page each.' } = Astro.props;
 
+const year = seasons()[0]!.year;
 const NAV = [
-  { href: '/seasons/', label: 'Seasons' },
   { href: '/races/', label: 'Races' },
   { href: '/circuits/', label: 'Circuits' },
   { href: '/teams/', label: 'Teams' },
+  { href: `/seasons/${year}/`, label: 'Standings' },
 ];
 const path = Astro.url.pathname;
 ---

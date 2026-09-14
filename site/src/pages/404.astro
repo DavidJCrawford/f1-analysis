@@ -1,6 +1,9 @@
 ---
 import Base from '@layouts/Base.astro';
 import { u } from '@lib/url';
+import { seasons } from '@lib/data';
+
+const year = seasons()[0]!.year;
 ---
 <Base title="Not found">
   <div class="wrap section">
@@ -10,8 +13,8 @@ import { u } from '@lib/url';
       URLs here are meant to be permanent, so this is either a typo or a mistake on our part.
     </p>
     <p style="margin-top:1.4rem">
-      <a href={u('/seasons/')}>Seasons</a> · <a href={u('/circuits/')}>Circuits</a> ·
-      <a href={u('/teams/')}>Teams</a>
+      <a href={u('/races/')}>Races</a> · <a href={u('/circuits/')}>Circuits</a> ·
+      <a href={u('/teams/')}>Teams</a> · <a href={u(`/seasons/${year}/`)}>Standings</a>
     </p>
   </div>
 </Base>

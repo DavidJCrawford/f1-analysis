@@ -1,34 +1,52 @@
 ---
 import Base from '@layouts/Base.astro';
-import { seasons, meta } from '@lib/data';
+import { seasons, season, circuit, meta, counts } from '@lib/data';
 import { u } from '@lib/url';
+import { shortDate } from '@lib/format';
 
-const all = [...seasons()].sort((a, b) => b.year - a.year);
-const m = meta();
+const year = seasons()[0]!.year;
+const s = season(year);
+const asOf = meta().dataAsOf;
+const c = counts();
 ---
-<Base title="Races" description="Every Formula 1 World Championship race since 1950.">
+<Base title="Races" description={`Every round of the ${year} Formula 1 season.`}>
   <div class="wrap section" data-pagefind-body>
-    <p class="eyebrow">Index</p>
+    <p class="eyebrow">Season {year}</p>
     <h1 class="headline" style="margin-top:.2em">Races</h1>
     <p class="lead" style="margin-top:1em">
-      {m.counts.races.toLocaleString('en-GB')} World Championship races. Pick a season.
+      {c.races} rounds, {c.held} run so far.
     </p>
-    <div class="years" style="margin-top:2.4rem">
-      {all.map((s) => (
-        <a class="year plain num" href={u(`/seasons/${s.year}/`)}>
-          {s.year}<span class="ui muted"> {s.races}</span>
-        </a>
-      ))}
+
+    <div class="table-scroll" style="margin-top:2.4rem">
+      <table>
+        <thead>
+          <tr>
+            <th class="n">Rd</th><th>Grand Prix</th><th>Circuit</th>
+            <th>Date</th><th>Winner</th><th>Constructor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {s.races.map((r) => {
+            const w = (s.results[String(r.round)] ?? []).find((x) => x.posNum === 1);
+            const ci = circuit(r.circuitId);
+            const future = r.date > asOf;
+            return (
+              <tr class={future ? 'future' : undefined}>
+                <td class="n">{r.round}</td>
+                <td><a href={u(`/races/${year}/${r.round}/`)}>{r.shortName}</a></td>
+                <td>{ci ? <a href={u(`/circuits/${ci.id}/`)}>{ci.name}</a> : r.circuitId}</td>
+                <td class="num muted">{shortDate(r.date)}</td>
+                <td>{w?.driver ?? <span class="muted">—</span>}</td>
+                <td class="muted">{w ? <a href={u(`/teams/${w.constructorId}/`)}>{w.constructor}</a> : '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   </div>
 </Base>
 
 <style>
-  .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 2px 12px; }
-  .year {
-    padding: 8px 10px 8px 0; color: var(--ks-ink);
-    border-bottom: 1px solid var(--ks-rule);
-    transition: color var(--ks-quick) var(--ks-ease), border-color var(--ks-quick) var(--ks-ease);
-  }
-  .year:hover { border-bottom-color: var(--ks-kinpaku); }
+  tr.future td { color: var(--ks-text-mute-deep); }
 </style>

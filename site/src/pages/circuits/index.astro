@@ -1,7 +1,7 @@
 ---
 import Base from '@layouts/Base.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
-import { circuits, outline, racesAtCircuit } from '@lib/data';
+import { circuits, outline, racesAtCircuit, seasons } from '@lib/data';
 import { u } from '@lib/url';
 
 const all = circuits()
@@ -9,14 +9,15 @@ const all = circuits()
   .sort((a, b) => b.races - a.races || a.c.name.localeCompare(b.c.name));
 const withOutline = all.filter((x) => x.o);
 const without = all.filter((x) => !x.o);
+const year = seasons()[0]!.year;
 ---
 <Base title="Circuits" description="Every circuit to have held a Formula 1 World Championship race.">
   <div class="wrap section" data-pagefind-body>
-    <p class="eyebrow">Index</p>
+    <p class="eyebrow">Season {year}</p>
     <h1 class="headline" style="margin-top:.2em">Circuits</h1>
     <p class="lead" style="margin-top:1em">
-      {all.length} circuits have held a World Championship race. {withOutline.length} have
-      verified geometry; the rest are listed below.
+      The {all.length} circuits on the {year} calendar, ordered by how often they have
+      held a Grand Prix.
     </p>
 
     <div class="gallery" style="margin-top:3rem">
@@ -25,7 +26,6 @@ const without = all.filter((x) => !x.o);
           <CircuitOutline outline={o!} name={c.name} height={110} />
           <span class="title">{c.name}</span>
           <span class="ui muted">{c.place}, {c.country}</span>
-          <span class="mono num">{races} {races === 1 ? 'race' : 'races'}</span>
         </a>
       ))}
     </div>

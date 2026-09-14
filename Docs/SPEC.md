@@ -22,6 +22,10 @@ One sentence, used to accept and reject every feature:
 > **Every race, circuit and team in Formula 1 history gets one beautiful,
 > permanent, honest page — and the modern ones let you fly the lap.**
 
+> **Scope note (2026-09-14).** The site is currently narrowed to the current
+> season only — see §4.3. The promise above describes the full encyclopaedia
+> the architecture still supports, and one switch restores it.
+
 Four words in that sentence are load-bearing.
 
 - **Permanent** — URLs never break. This is an encyclopaedia, not a dashboard.
@@ -126,6 +130,33 @@ jolpica:
 That is roughly **2,400 pages at launch** and up to ~6,000 with driver pages
 and season-by-team cross-sections. This scale is the single biggest driver of
 the architecture decisions in §6 and §11.
+
+### 4.3 Current scope — the current season only
+
+**Decided 2026-09-14.** The site covers **one season**, not the full archive:
+23 races, 23 circuits, 11 constructors, 63 pages, against the 1,520 the full
+corpus produces.
+
+This supersedes the archival-first sequencing in §16. It also means the
+coverage tiers in §4.2 are dormant: every race in scope is *modern* tier, so
+the four templates collapse to one, and the honest-absence copy that carried
+the archival era has nothing to describe.
+
+It is a single switch — `site/src/lib/scope.ts`:
+
+```ts
+export const SEASON_SCOPE: number[] | null = [2026];   // null = all history
+```
+
+Routes, indexes, entity lists and counts all derive from it, so widening the
+scope is that one line plus a rebuild. The emitted data still covers all 77
+seasons; only what is published from it is narrowed.
+
+**What this costs.** The differentiation thesis in §1 rests on being a
+*permanent encyclopaedia* where every race in history has a URL — that is the
+gap the prior-art survey identified, and no competitor fills it. A
+current-season site is a much more crowded space. Worth revisiting once the
+current season's treatment is finished.
 
 ### 4.2 Coverage tiers — the most important structural decision
 

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import type {
   Meta, Season, Circuit, Constructor, Race, SeasonFile, Outline, Profile,
 } from './types';
+import { inScope } from './scope';
 
 declare const __DATA_DIR__: string;
 const cache = new Map<string, unknown>();
@@ -23,10 +24,35 @@ function load<T>(rel: string): T {
 }
 
 export const meta = () => load<Meta>('meta.json');
-export const seasons = () => load<Season[]>('seasons.json');
-export const circuits = () => load<Circuit[]>('circuits.json');
-export const constructors = () => load<Constructor[]>('constructors.json');
-export const races = () => load<Race[]>('races.json');
+
+/** Everything below is filtered to the configured scope — see scope.ts. One
+ *  switch narrows the routes, the indexes, the entity lists and the counts. */
+export const seasons = () => load<Season[]>('seasons.json').filter((s) => inScope(s.year));
+export const races = () => load<Race[]>('races.json').filter((r) => inScope(r.year));
+
+export function circuits(): Circuit[] {
+  const used = new Set(races().map((r) => r.circuitId));
+  return load<Circuit[]>('circuits.json').filter((c) => used.has(c.id));
+}
+
+export function constructors(): Constructor[] {
+  const entered = new Set<string>();
+  for (const s of seasons())
+    for (const c of season(s.year).constructorStandings) entered.add(c.constructorId);
+  return load<Constructor[]>('constructors.json').filter((c) => entered.has(c.id));
+}
+
+/** Counts for what this site actually covers, not for all of F1 history. */
+export function counts() {
+  const r = races();
+  return {
+    seasons: seasons().length, races: r.length, circuits: circuits().length,
+    constructors: constructors().length,
+    results: seasons().reduce((n, s) =>
+      n + Object.values(season(s.year).results).reduce((m, v) => m + v.length, 0), 0),
+    held: r.filter((x) => x.date <= meta().dataAsOf).length,
+  };
+}
 export const outlines = () => load<Record<string, Outline>>('outlines.json');
 export const profiles = () => load<Record<string, Profile>>('profiles.json');
 

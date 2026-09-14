@@ -60,6 +60,22 @@ const rows = [0.5, -0.5].map((side, i) => {
     offset: i === 0 ? 0 : cell,
   };
 });
+
+// The dark squares are painted rather than left as holes: a solid black ground
+// under the white dashes, so the chequer reads the same whatever it sits on.
+// A hairline frame, offset by a little padding, lifts it off the tarmac.
+const FRAME_PAD = 1.6;   // px
+const quad = (alongHalf: number, acrossHalf: number) =>
+  [[1, 1], [1, -1], [-1, -1], [-1, 1]]
+    .map(([a, b]) => [
+      sOx + sN[0] * a * alongHalf + sT[0] * b * acrossHalf,
+      sOy + sN[1] * a * alongHalf + sT[1] * b * acrossHalf,
+    ])
+    .map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`)
+    .join(' ');
+
+const chequerGround = quad(halfLen, cell);
+const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
 ---
 <svg
   class="outline"
@@ -89,11 +105,17 @@ const rows = [0.5, -0.5].map((side, i) => {
   )}
 
   {CHEQUER
-    ? rows.map((r) => (
-        <line class="chequer" x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2}
-              stroke-width={cell} stroke-dasharray={`${cell} ${cell}`}
-              stroke-dashoffset={r.offset} />
-      ))
+    ? (
+      <>
+        <polygon class="chequer-ground" points={chequerGround} />
+        {rows.map((r) => (
+          <line class="chequer" x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2}
+                stroke-width={cell} stroke-dasharray={`${cell} ${cell}`}
+                stroke-dashoffset={r.offset} />
+        ))}
+        <polygon class="chequer-frame" points={chequerFrame} />
+      </>
+    )
     : showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
 </svg>
 
@@ -108,5 +130,10 @@ const rows = [0.5, -0.5].map((side, i) => {
     vector-effect: non-scaling-stroke;
   }
   .outline.is-hovering .hover-dot { opacity: 1; }
-  .chequer { stroke: currentColor; }
+  .chequer-ground { fill: #000; }
+  .chequer { stroke: #fff; }
+  .chequer-frame {
+    fill: none; stroke: #fff; stroke-width: 0.75px;
+    vector-effect: non-scaling-stroke;
+  }
 </style>

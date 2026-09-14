@@ -56,9 +56,18 @@ def _closed_length(pts: list[tuple[float, float]]) -> float:
     return sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)) + math.dist(pts[-1], pts[0])
 
 
-def _tumftm() -> dict[str, dict]:
+def _tumftm(apply_alignment: bool = True) -> dict[str, dict]:
+    """Raw TUMFTM centrelines, re-origined to start/finish where align.py has
+    solved it. align.py itself must pass apply_alignment=False: solving against
+    already-re-origined traces would collapse every fraction to zero on a
+    second run."""
     d = VENDOR / "tumftm"
     mapping = json.loads((d / "MAPPING.json").read_text())
+    # Start/finish positions carried across from OSM by align.py, which solves
+    # the rigid transform between TUMFTM's local frame and geographic space.
+    align_f = VENDOR / "tumftm-start-finish.json"
+    aligned = (json.loads(align_f.read_text())
+               if apply_alignment and align_f.exists() else {})
     out = {}
     for fname, cid in mapping.items():
         f = d / f"{fname}.csv"
@@ -74,14 +83,33 @@ def _tumftm() -> dict[str, dict]:
                 continue
         if len(pts) < 40:
             continue
+        start_src = "trace"
+        if cid in aligned:
+            pts = _reorigin_at(pts, aligned[cid]["fraction"])
+            start_src = "osm"
         out[cid] = {"pts": pts, "width": width, "source": "TUMFTM/racetrack-database (LGPL-3.0)",
-                    "sourceId": fname, "startSource": "trace"}
+                    "sourceId": fname, "startSource": start_src}
     return out
 
 
 def _start_finish() -> dict[str, dict]:
     f = VENDOR / "osm-start-finish.json"
     return json.loads(f.read_text()) if f.exists() else {}
+
+
+def _reorigin_at(pts: list[tuple[float, float]], frac: float) -> list[tuple[float, float]]:
+    """Rotate a closed polyline to begin at a given fraction of its length."""
+    seg = [math.dist(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+    target = (frac % 1.0) * sum(seg)
+    acc = 0.0
+    for i, s in enumerate(seg):
+        if acc + s >= target:
+            tt = (target - acc) / s if s else 0.0
+            a, b = pts[i], pts[(i + 1) % len(pts)]
+            snap = (a[0] + (b[0] - a[0]) * tt, a[1] + (b[1] - a[1]) * tt)
+            return [snap] + pts[i + 1:] + pts[:i + 1]
+        acc += s
+    return list(pts)
 
 
 def _reorigin(pts: list[tuple[float, float]], target: tuple[float, float]) -> list[tuple[float, float]]:
@@ -148,6 +176,9 @@ def _bacinger() -> dict[str, dict]:
                 break
         out[p["id"]] = {"pts": pts, "width": None, "source": "bacinger/f1-circuits (MIT)",
                         "sourceId": p["id"], "candidates": cands, "startSource": start_src,
+                        # Frame origin, so a lat/lon can be projected into these
+                        # metric coordinates later (see align.py).
+                        "lat0": lat0, "lon0": lon0,
                         "declaredLength": p.get("length")}
     return out
 

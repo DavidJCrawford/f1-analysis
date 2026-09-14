@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit geo outlines profile data build preview check banner clean
+.PHONY: help spine emit geo align outlines profile data build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -26,10 +26,13 @@ emit: ## F1DB CSV -> canonical JSON in site/data/
 geo: ## Report which geometry source each circuit resolves to
 	python3 pipeline/geo.py
 
+align: ## Solve the TUMFTM local frame against geographic space (slow; cached)
+	python3 pipeline/align.py
+
 outlines: ## Normalised outlines from the best geometry available (length-validated)
 	python3 pipeline/outlines.py
 
-data: spine emit outlines profile ## Full data refresh
+data: spine emit align outlines profile ## Full data refresh
 
 build: ## Build the site and its search index
 	cd $(SITE) && npm run build

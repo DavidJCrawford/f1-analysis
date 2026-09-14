@@ -93,6 +93,8 @@ const labelX = labelSeg
                 stroke-dasharray={`${SF_CELL} ${SF_CELL}`}
                 stroke-dashoffset={col === 0 ? 0 : SF_CELL} />
         ))}
+        <rect class="sf-frame" x={cx - SF_CELL} y={SF_TOP}
+              width={SF_CELL * 2} height={SF_H} />
       </>
     ))}
     <path class="ribbon" d={ribbon} />
@@ -119,8 +121,16 @@ const labelX = labelSeg
 
   .ribbon { fill: var(--ks-ink); fill-opacity: 0.1; stroke: var(--ks-ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
   .axis   { stroke: var(--ks-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  /* The ground and the white dashes cover the same area exactly, so any black
+     showing at the edge is sub-pixel antialiasing — it appeared as a hairline
+     of uneven width. An explicit frame makes it deliberate instead, and
+     non-scaling-stroke holds it at 1px whatever the chart is scaled to. */
   .sf-ground { fill: #000; }
   .sf { stroke: #fff; }
+  .sf-frame {
+    fill: none; stroke: #000; stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+  }
   .apex   { stroke: var(--f1-corner); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .straight { fill: var(--ks-ink); fill-opacity: 0.05; }
 

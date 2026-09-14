@@ -1,6 +1,6 @@
 ---
 import type { Outline, Corner } from '@lib/types';
-import { pointAtFraction } from '@lib/geometry';
+import { pointAndNormal } from '@lib/geometry';
 
 interface Props {
   outline: Outline; name: string;
@@ -10,46 +10,56 @@ interface Props {
 const { outline, name, height = 120, stroke = 1.5, showStart = true,
         corners = [], lapLength } = Astro.props;
 
-const PAD = corners.length ? 0.15 : 0.06;
+const labelled = corners.length > 0 && lapLength != null;
+const PAD = labelled ? 0.14 : 0.06;
 const span = 1 + PAD * 2;
 const px = (x: number) => x + 0.5 + PAD;
+const unit = (v: number) => (v / height) * span;   // px -> viewBox units
+
 const d = outline.points
   .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
   .join('') + 'Z';
 const [sx, sy] = outline.points[0]!;
-const unit = (v: number) => (v / height) * span;
 
-// Labels sit outside the track, pushed along the ray from the circuit's centre,
-// so a number never lands on the racing line it belongs to.
-const cxAvg = outline.points.reduce((s, q) => s + q[0], 0) / outline.points.length;
-const cyAvg = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
+const cx = outline.points.reduce((s, q) => s + q[0], 0) / outline.points.length;
+const cy = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
 
-const raw = lapLength
-  ? corners.map((c) => {
-      const [x, y] = pointAtFraction(outline.points, c.apex / lapLength);
-      const dx = x - cxAvg, dy = y - cyAvg;
-      const len = Math.hypot(dx, dy) || 1;
-      const off = unit(13);
-      return { n: c.n, x: px(x), y: px(y),
-               lx: px(x) + (dx / len) * off, ly: px(y) + (dy / len) * off };
-    })
-  : [];
+/**
+ * Every corner gets a number. Labels are pushed out along the local outward
+ * normal, and a colliding label is pushed further rather than dropped — a
+ * missing number reads as missing data, which is worse than a crowded map.
+ * Anything displaced beyond the base offset gets a leader line back to its dot.
+ */
+const BASE = 13, STEP = 7, MAX = 52;
+const box = (n: number) => ({ w: unit(String(n).length * 6.2 + 5), h: unit(11) });
 
-// Cull labels that would overlap; the dot stays either way.
-const MIN = unit(15);
-const kept: { lx: number; ly: number }[] = [];
-const marks = raw.map((m) => {
-  const clash = kept.some((q) => Math.hypot(q.lx - m.lx, q.ly - m.ly) < MIN);
-  if (!clash) kept.push(m);
-  return { ...m, label: !clash };
-});
+const placed: { x: number; y: number; w: number; h: number }[] = [];
+const marks = labelled ? corners.map((c) => {
+  const { p, n } = pointAndNormal(outline.points, c.apex / lapLength!, [cx, cy]);
+  const dx = px(p[0]), dy = px(p[1]);
+  const { w, h } = box(c.n);
+
+  let off = BASE, lx = dx, ly = dy;
+  for (; off <= MAX; off += STEP) {
+    lx = dx + n[0] * unit(off);
+    ly = dy + n[1] * unit(off);
+    const clash = placed.some((q) =>
+      Math.abs(q.x - lx) < (q.w + w) / 2 && Math.abs(q.y - ly) < (q.h + h) / 2);
+    if (!clash) break;
+  }
+  if (off > MAX) off = MAX;                 // place it anyway; never drop
+  placed.push({ x: lx, y: ly, w, h });
+
+  return { n: c.n, dx, dy, lx, ly, leader: off > BASE + STEP,
+           nx: n[0], ny: n[1], off };
+}) : [];
 ---
 <svg
   class="outline"
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
-  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners marked` : ''}${showStart ? ', gold marks start and finish' : ''}`}
+  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners numbered in lap order` : ''}${showStart ? ', gold marks start and finish' : ''}`}
 >
   <path
     d={d} fill="none" stroke="currentColor"
@@ -57,18 +67,26 @@ const marks = raw.map((m) => {
     vector-effect="non-scaling-stroke"
   />
 
-  {marks.map((m) => <circle cx={m.x} cy={m.y} r={unit(2.2)} class="corner-dot" />)}
-  {marks.filter((m) => m.label).map((m) => (
-    <text x={m.lx} y={m.ly + unit(3.4)} text-anchor="middle"
-          class="corner-num" style={`font-size:${unit(9.5)}px`}>{m.n}</text>
+  {marks.filter((m) => m.leader).map((m) => (
+    <line class="leader"
+          x1={m.dx + m.nx * unit(3.5)} y1={m.dy + m.ny * unit(3.5)}
+          x2={m.lx - m.nx * unit(5)}   y2={m.ly - m.ny * unit(5)} />
   ))}
 
-  {showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.8)} fill="var(--ks-kinpaku)" />}
+  {marks.map((m) => <circle class="corner-dot" cx={m.dx} cy={m.dy} r={unit(2.1)} />)}
+
+  {marks.map((m) => (
+    <text class="corner-num" x={m.lx} y={m.ly + unit(3.3)}
+          text-anchor="middle" style={`font-size:${unit(9.5)}px`}>{m.n}</text>
+  ))}
+
+  {showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
 </svg>
 
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
   .outline path { stroke-width: 1.5px; }
-  .corner-dot { fill: currentColor; fill-opacity: .5; }
-  .corner-num { fill: currentColor; fill-opacity: .7; font-family: var(--ks-mono), monospace; }
+  .corner-dot { fill: currentColor; fill-opacity: .55; }
+  .corner-num { fill: currentColor; fill-opacity: .78; font-family: var(--ks-mono), monospace; }
+  .leader { stroke: currentColor; stroke-opacity: .28; stroke-width: 1; vector-effect: non-scaling-stroke; }
 </style>

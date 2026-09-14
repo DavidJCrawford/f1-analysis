@@ -42,8 +42,14 @@ const arcs = marked ? corners.map((c) =>
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
     .join('')) : [];
 
-// Start/finish: a chequered band squared to the local tangent. Two dashed
-// strokes offset by half a period, so the squares meet edge to edge.
+// Start/finish: a chequered band squared to the local tangent.
+//
+// Every part of it is a filled polygon. This band is rotated to the track, so
+// its edges cannot snap to the pixel grid and antialiasing is the correct
+// result — but a stroke is centred on its boundary, so a sub-pixel one covers
+// part of two pixels and reads as a smear rather than a line. Fills have no
+// such problem: the frame is a larger polygon beneath the ground, and each
+// square is its own quad.
 const CHEQUER = showStart && height >= 240;
 const CELL = 3.8, COLS = 9;
 const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
@@ -52,19 +58,29 @@ const sT: [number, number] = [-sN[1], sN[0]];
 const cell = unit(CELL);
 const halfLen = (cell * COLS) / 2;
 const sOx = px(startFrame.p[0]), sOy = px(startFrame.p[1]);
-const rows = [0.5, -0.5].map((side, i) => {
-  const ox = sOx + sT[0] * side * cell, oy = sOy + sT[1] * side * cell;
-  return {
-    x1: ox - sN[0] * halfLen, y1: oy - sN[1] * halfLen,
-    x2: ox + sN[0] * halfLen, y2: oy + sN[1] * halfLen,
-    offset: i === 0 ? 0 : cell,
-  };
-});
+const cellQuad = (a0: number, a1: number, b0: number, b1: number) =>
+  [[a0, b0], [a1, b0], [a1, b1], [a0, b1]]
+    .map(([a, b]) => `${(sOx + sN[0] * a + sT[0] * b).toFixed(4)},${(sOy + sN[1] * a + sT[1] * b).toFixed(4)}`)
+    .join(' ');
+
+const chequerSquares: string[] = [];
+if (CHEQUER) {
+  for (let col = 0; col < COLS; col++) {
+    for (let row = 0; row < 2; row++) {
+      if ((col + row) % 2 !== 0) continue;       // the black half is the ground
+      const a0 = -halfLen + col * cell;
+      chequerSquares.push(cellQuad(a0, a0 + cell, (row - 1) * cell, row * cell));
+    }
+  }
+}
+
 
 // The dark squares are painted rather than left as holes: a solid black ground
 // under the white dashes, so the chequer reads the same whatever it sits on.
 // A hairline frame, offset by a little padding, lifts it off the tarmac.
-const FRAME_PAD = 1.6;   // px
+// A stroke showed only half its width outside the edge, so as a fill this
+// needs to be roughly halved to look the same.
+const FRAME_PAD = 0.8;   // px
 const quad = (alongHalf: number, acrossHalf: number) =>
   [[1, 1], [1, -1], [-1, -1], [-1, 1]]
     .map(([a, b]) => [
@@ -107,13 +123,9 @@ const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
   {CHEQUER
     ? (
       <>
-        <polygon class="chequer-ground" points={chequerGround} />
-        {rows.map((r) => (
-          <line class="chequer" x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2}
-                stroke-width={cell} stroke-dasharray={`${cell} ${cell}`}
-                stroke-dashoffset={r.offset} />
-        ))}
         <polygon class="chequer-frame" points={chequerFrame} />
+        <polygon class="chequer-ground" points={chequerGround} />
+        {chequerSquares.map((pts) => <polygon class="chequer" points={pts} />)}
       </>
     )
     : showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
@@ -130,10 +142,7 @@ const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
     vector-effect: non-scaling-stroke;
   }
   .outline.is-hovering .hover-dot { opacity: 1; }
+  .chequer-frame { fill: #fff; }
   .chequer-ground { fill: #000; }
-  .chequer { stroke: #fff; }
-  .chequer-frame {
-    fill: none; stroke: #fff; stroke-width: 0.75px;
-    vector-effect: non-scaling-stroke;
-  }
+  .chequer { fill: #fff; }
 </style>

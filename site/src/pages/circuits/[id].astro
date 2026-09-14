@@ -5,7 +5,8 @@ import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
 import TrackProfile from '@components/TrackProfile.astro';
 import CircuitScatter from '@components/CircuitScatter.astro';
-import { circuits, circuit, outline, profile, racesAtCircuit, season } from '@lib/data';
+import { circuits, circuit, outline, profile, racesAtCircuit, season,
+         currentSeasonYear, seasonCircuits } from '@lib/data';
 import { u } from '@lib/url';
 import { km, shortDate, int } from '@lib/format';
 
@@ -15,7 +16,8 @@ export const getStaticPaths = (() =>
 const c = circuit(Astro.params.id!)!;
 const o = outline(c.id);
 const prof = profile(c.id);
-const allCircuits = circuits();
+const thisSeason = currentSeasonYear();
+const field = seasonCircuits(thisSeason);
 const held = racesAtCircuit(c.id);
 const winners = new Map<string, number>();
 for (const r of held) {
@@ -86,7 +88,7 @@ const last = held[0];
     {c.length != null && c.turns != null && (
       <section class="scatter-block">
         <h2 class="title-lg">Against the field</h2>
-        <CircuitScatter circuits={allCircuits} current={c} />
+        <CircuitScatter field={field} current={c} season={thisSeason} />
       </section>
     )}
 

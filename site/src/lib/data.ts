@@ -51,6 +51,16 @@ export function constructorSeasons(id: string) {
   return out.sort((a, b) => b.year - a.year);
 }
 
+/** The latest season in the corpus — the peer group a circuit is measured against. */
+export const currentSeasonYear = (): number =>
+  Math.max(...seasons().map((s) => s.year));
+
+/** Circuits on a season's calendar, in calendar order. */
+export function seasonCircuits(year: number): Circuit[] {
+  const ids = new Set(races().filter((r) => r.year === year).map((r) => r.circuitId));
+  return circuits().filter((c) => ids.has(c.id));
+}
+
 export const TIER_LABEL: Record<string, string> = {
   archival: 'Archival', timing: 'Timing', telemetry: 'Telemetry', modern: 'Modern',
 };

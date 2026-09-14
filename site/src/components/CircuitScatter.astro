@@ -4,8 +4,8 @@ import type { Circuit } from '@lib/types';
 interface Props { field: Circuit[]; current: Circuit; season: number; }
 const { field, current, season } = Astro.props;
 
-const W = 660, H = 400;
-const M = { t: 26, r: 22, b: 46, l: 42 };
+const W = 1120, H = 500;
+const M = { t: 30, r: 28, b: 52, l: 52 };
 const PW = W - M.l - M.r, PH = H - M.t - M.b;
 
 const has = (c: Circuit) => c.length != null && c.turns != null;

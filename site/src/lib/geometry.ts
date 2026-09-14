@@ -48,3 +48,32 @@ export function pointAndNormal(
   if (nx * (p[0] - centroid[0]) + ny * (p[1] - centroid[1]) < 0) { nx = -nx; ny = -ny; }
   return { p, n: [nx, ny] };
 }
+
+/**
+ * The stretch of a closed polyline between two arc-length fractions, walking
+ * forward and wrapping past the start/finish line when a corner straddles it.
+ * Endpoints are interpolated so a highlight begins and ends exactly where the
+ * corner does, not at the nearest traced vertex.
+ */
+export function subPath(points: readonly Vec[], f0: number, f1: number): [number, number][] {
+  const { seg, total } = lengths(points);
+  const n = points.length;
+  const wrap = (f: number) => (((f % 1) + 1) % 1) * total;
+  const d0 = wrap(f0);
+  let d1 = wrap(f1);
+  if (d1 <= d0) d1 += total;                     // corner crosses the line
+
+  const cum: number[] = [0];                     // distance to vertex k
+  for (let i = 0; i < n; i++) cum.push(cum[i]! + seg[i]!);
+
+  const out: [number, number][] = [pointAtFraction(points, f0)];
+  for (let k = 1; k <= 2 * n; k++) {
+    const d = k <= n ? cum[k]! : cum[k - n]! + total;   // unwrapped
+    if (d <= d0) continue;
+    if (d >= d1) break;
+    const v = points[k % n]!;
+    out.push([v[0], v[1]]);
+  }
+  out.push(pointAtFraction(points, f1));
+  return out;
+}

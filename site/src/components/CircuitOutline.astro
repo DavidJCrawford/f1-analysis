@@ -1,6 +1,6 @@
 ---
 import type { Outline, Corner } from '@lib/types';
-import { pointAndNormal } from '@lib/geometry';
+import { pointAndNormal, subPath } from '@lib/geometry';
 
 interface Props {
   outline: Outline; name: string;
@@ -63,6 +63,16 @@ const rows = [0.5, -0.5].map((side, i) => {
 const BASE = 13, STEP = 7, MAX = 52;
 const box = (n: number) => ({ w: unit(String(n).length * 6.2 + 5), h: unit(11) });
 
+// The full arc of each corner, entry to exit, drawn over the base line. The
+// profile stage records these as distances along the lap; the outline is the
+// same trace, so arc-length fraction is the shared key.
+const arcs = labelled ? corners.map((c) => ({
+  n: c.n,
+  d: subPath(outline.points, c.entry / lapLength!, c.exit / lapLength!)
+      .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
+      .join(''),
+})) : [];
+
 const placed: { x: number; y: number; w: number; h: number }[] = [];
 const marks = labelled ? corners.map((c) => {
   const { p, n } = pointAndNormal(outline.points, c.apex / lapLength!, [cx, cy]);
@@ -89,21 +99,27 @@ const marks = labelled ? corners.map((c) => {
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
-  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners numbered in lap order` : ''}${showStart ? (CHEQUER ? ', a chequered line marks start and finish' : ', gold marks start and finish') : ''}`}
+  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners highlighted in red and numbered in lap order` : ''}${showStart ? (CHEQUER ? ', a chequered line marks start and finish' : ', gold marks start and finish') : ''}`}
 >
   <path
-    d={d} fill="none" stroke="currentColor"
-    stroke-width={unit(stroke)} stroke-linejoin="round" stroke-linecap="round"
+    class="track" d={d} fill="none" stroke="currentColor"
+    style={`stroke-width:${stroke}px`}
+    stroke-linejoin="round" stroke-linecap="round"
     vector-effect="non-scaling-stroke"
   />
+
+  {arcs.map((a) => (
+    <path class="corner-arc" d={a.d} fill="none"
+          style={`stroke-width:${stroke * 2.6}px`}
+          stroke-linecap="round" stroke-linejoin="round"
+          vector-effect="non-scaling-stroke" />
+  ))}
 
   {marks.filter((m) => m.leader).map((m) => (
     <line class="leader"
           x1={m.dx + m.nx * unit(3.5)} y1={m.dy + m.ny * unit(3.5)}
           x2={m.lx - m.nx * unit(5)}   y2={m.ly - m.ny * unit(5)} />
   ))}
-
-  {marks.map((m) => <circle class="corner-dot" cx={m.dx} cy={m.dy} r={unit(2.1)} />)}
 
   {marks.map((m) => (
     <text class="corner-num" x={m.lx} y={m.ly + unit(3.3)}
@@ -121,8 +137,7 @@ const marks = labelled ? corners.map((c) => {
 
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
-  .outline path { stroke-width: 1.5px; }
-  .corner-dot { fill: currentColor; fill-opacity: .55; }
+  .corner-arc { stroke: var(--f1-corner); }
   .corner-num { fill: currentColor; fill-opacity: .78; font-family: var(--ks-mono), monospace; }
   .leader { stroke: currentColor; stroke-opacity: .28; stroke-width: 1; vector-effect: non-scaling-stroke; }
   .chequer { stroke: currentColor; }

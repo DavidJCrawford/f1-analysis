@@ -30,6 +30,11 @@
   --ks-patina-deep:   oklch(45% 0.1 190);
   --ks-vermilion:     oklch(52% 0.16 35);
 
+  /* Data encoding, not interface. The vermilion above is reserved for alarm
+     states and in any case only reaches 2.78:1 on the instrument panel, under
+     the 3:1 WCAG floor for graphical objects. This clears it at 3.75:1. */
+  --f1-corner:        oklch(60% 0.21 28);
+
   /* ── Instrument: dark surfaces set into a light page. ──────────────────── */
   --ks-instrument:        oklch(24% 0 0);
   --ks-instrument-deep:   oklch(17% 0 0);

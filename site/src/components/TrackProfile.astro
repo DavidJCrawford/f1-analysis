@@ -24,10 +24,60 @@ const SF_ROWS = Math.round(((CY + AMP + 6) - SF_TOP) / SF_CELL);
 const SF_H = SF_ROWS * SF_CELL;
 const sfBars = [PADX, W - PADX];
 
+/**
+ * Monotone cubic interpolation (Fritsch-Carlson), as Bezier segments.
+ *
+ * Drawn as straight segments the ribbon facets visibly at the peaks, where it
+ * turns fastest. A plain Catmull-Rom spline would smooth it but overshoot, and
+ * this data is deadbanded — everything gentler than a 700 m radius is exactly
+ * zero — so an overshoot at the foot of a corner would put a visible dip in a
+ * straight. Monotone tangents cannot overshoot: flat stays flat, and a peak
+ * stays a peak.
+ */
+function monotonePath(pts: [number, number][]): string {
+  const m = pts.length;
+  if (m < 3) return pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(2)} ${q[1].toFixed(2)}`).join('');
+
+  const slope: number[] = [];
+  for (let i = 0; i < m - 1; i++) {
+    const dx = pts[i + 1]![0] - pts[i]![0];
+    slope.push(dx === 0 ? 0 : (pts[i + 1]![1] - pts[i]![1]) / dx);
+  }
+
+  const tan: number[] = new Array(m);
+  tan[0] = slope[0]!;
+  tan[m - 1] = slope[m - 2]!;
+  for (let i = 1; i < m - 1; i++) {
+    const a = slope[i - 1]!, b = slope[i]!;
+    // A sign change is a turning point; a zero tangent keeps it from bulging.
+    tan[i] = a * b <= 0 ? 0 : (a + b) / 2;
+  }
+  for (let i = 0; i < m - 1; i++) {
+    if (slope[i] === 0) { tan[i] = 0; tan[i + 1] = 0; continue; }
+    const ai = tan[i]! / slope[i]!, bi = tan[i + 1]! / slope[i]!;
+    const s = ai * ai + bi * bi;
+    if (s > 9) {                      // Fritsch-Carlson limit
+      const k = 3 / Math.sqrt(s);
+      tan[i] = k * ai * slope[i]!;
+      tan[i + 1] = k * bi * slope[i]!;
+    }
+  }
+
+  let d = `M${pts[0]![0].toFixed(2)} ${pts[0]![1].toFixed(2)}`;
+  for (let i = 0; i < m - 1; i++) {
+    const [x0, y0] = pts[i]!, [x1, y1] = pts[i + 1]!;
+    const h = (x1 - x0) / 3;
+    d += `C${(x0 + h).toFixed(2)} ${(y0 + tan[i]! * h).toFixed(2)},`
+       + `${(x1 - h).toFixed(2)} ${(y1 - tan[i + 1]! * h).toFixed(2)},`
+       + `${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  }
+  return d;
+}
+
+const curvePts: [number, number][] = kappa.map((k, i) => [xAt(i), yAt(k)]);
 const ribbon =
-  `M${xAt(0).toFixed(1)} ${CY}` +
-  kappa.map((k, i) => `L${xAt(i).toFixed(1)} ${yAt(k).toFixed(1)}`).join('') +
-  `L${xAt(n - 1).toFixed(1)} ${CY}Z`;
+  `M${xAt(0).toFixed(2)} ${CY}L` + monotonePath(curvePts).slice(1) +
+  `L${xAt(n - 1).toFixed(2)} ${CY}Z`;
 
 // Position along the lap -> x. The profile is sampled at uniform arc length.
 const xOfDist = (d: number) => PADX + (d / p.length) * (W - PADX * 2);

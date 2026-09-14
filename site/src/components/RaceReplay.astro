@@ -1,0 +1,395 @@
+---
+interface Props { manifest: Record<string, unknown>; base: string; label: string; }
+const { manifest, base, label } = Astro.props;
+---
+<div class="replay-launch">
+  <button class="play" type="button" data-replay-open aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="15" height="15"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+    <span>Replay the race</span>
+  </button>
+  <span class="ui muted hint">Full race from the timing feed</span>
+</div>
+
+<div class="replay" data-replay hidden
+     data-manifest={JSON.stringify(manifest)} data-bin={base}
+     role="dialog" aria-modal="true" aria-label={`Race replay — ${label}`}>
+  <header class="bar top">
+    <div class="id">
+      <span class="mono">Replay</span>
+      <span class="title">{label}</span>
+    </div>
+    <div class="readout mono num" data-readout>—</div>
+    <button class="icon" type="button" data-replay-close aria-label="Close replay">✕</button>
+  </header>
+
+  <div class="stage">
+    <canvas data-canvas></canvas>
+    <p class="loading mono" data-loading>Loading positions…</p>
+    <div class="zoom">
+      <button class="icon sm" type="button" data-zoom="-1" aria-label="Zoom out">−</button>
+      <button class="icon sm" type="button" data-zoom="1" aria-label="Zoom in">+</button>
+    </div>
+  </div>
+
+  <div class="bar controls">
+    <button class="icon" type="button" data-act="restart" aria-label="Restart">⏮</button>
+    <button class="icon" type="button" data-act="back" aria-label="Rewind">◀◀</button>
+    <button class="icon wide" type="button" data-act="play" aria-label="Play">▶</button>
+    <label class="speed">
+      <span class="visually-hidden">Speed</span>
+      <select data-speed>
+        <option value="10">10×</option>
+        <option value="30" selected>30×</option>
+        <option value="60">60×</option>
+        <option value="120">120×</option>
+      </select>
+    </label>
+    <input class="scrub" type="range" min="0" max="1000" value="0" step="1"
+           data-scrub aria-label="Race position" />
+  </div>
+
+  <ol class="strip" data-strip aria-label="Running order"></ol>
+</div>
+
+<style>
+  .replay-launch { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 2rem 0 0; }
+  .play {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--ks-ink); color: var(--ks-paper);
+    border: 0; border-radius: var(--ks-radius-pill);
+    padding: 10px 20px 10px 16px; cursor: pointer;
+    font: inherit; font-size: var(--ks-type-ui-size); letter-spacing: .04em;
+    transition: background var(--ks-quick) var(--ks-ease), transform var(--ks-quick) var(--ks-ease);
+  }
+  .play:hover { background: var(--ks-instrument-raised); transform: translateY(-1px); }
+  .play:focus-visible { outline: 2px solid var(--ks-patina-deep); outline-offset: 3px; }
+  .hint { white-space: nowrap; }
+
+  .replay {
+    position: fixed; inset: 0; z-index: 50;
+    background: var(--ks-instrument-deep); color: var(--ks-instrument-text);
+    display: grid; grid-template-rows: auto 1fr auto auto;
+    color-scheme: dark;
+  }
+  .replay[hidden] { display: none; }
+
+  .bar { display: flex; align-items: center; gap: 16px; padding: 12px clamp(14px, 3vw, 28px); }
+  .top { border-bottom: 1px solid var(--ks-instrument-rule); }
+  .id { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .id .mono { color: var(--ks-instrument-muted); letter-spacing: .14em; }
+  .id .title { font-weight: 600; font-size: var(--ks-type-title-size); color: var(--ks-instrument-text); }
+  .readout { margin-left: auto; color: var(--ks-instrument-muted); letter-spacing: .06em; text-transform: none; }
+
+  .icon {
+    background: transparent; color: var(--ks-instrument-text);
+    border: 1px solid var(--ks-instrument-rule); border-radius: var(--ks-radius-sm);
+    min-width: 34px; height: 30px; cursor: pointer; font: inherit; font-size: 12px;
+    transition: border-color var(--ks-quick) var(--ks-ease), background var(--ks-quick) var(--ks-ease);
+  }
+  .icon:hover { border-color: var(--ks-instrument-edge); background: var(--ks-instrument); }
+  .icon:focus-visible { outline: 2px solid var(--ks-patina); outline-offset: 2px; }
+  .icon.wide { min-width: 46px; }
+  .icon.sm { min-width: 26px; height: 26px; }
+
+  .stage { position: relative; overflow: hidden; background: var(--ks-instrument); }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .loading {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--ks-instrument-muted); letter-spacing: .14em; margin: 0;
+    pointer-events: none;
+  }
+  .loading[hidden] { display: none; }
+  .zoom { position: absolute; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+
+  .controls { border-top: 1px solid var(--ks-instrument-rule); }
+  .speed select {
+    background: transparent; color: var(--ks-instrument-text);
+    border: 1px solid var(--ks-instrument-rule); border-radius: var(--ks-radius-sm);
+    padding: 6px 8px; font: inherit; font-size: var(--ks-type-ui-size);
+  }
+  .scrub { flex: 1; accent-color: var(--ks-kinpaku); min-width: 120px; }
+
+  .strip {
+    display: flex; gap: 6px; list-style: none; margin: 0;
+    padding: 12px clamp(14px, 3vw, 28px) 16px;
+    overflow-x: auto; border-top: 1px solid var(--ks-instrument-rule);
+    scrollbar-width: thin;
+  }
+  .strip li { flex: 0 0 auto; }
+  .strip button {
+    display: flex; align-items: center; gap: 9px;
+    background: transparent; border: 1px solid transparent;
+    border-radius: var(--ks-radius-sm); padding: 5px 9px 5px 6px;
+    cursor: pointer; font: inherit; color: var(--ks-instrument-text);
+    transition: border-color var(--ks-quick) var(--ks-ease), background var(--ks-quick) var(--ks-ease);
+  }
+  .strip button:hover { background: var(--ks-instrument); border-color: var(--ks-instrument-rule); }
+  .strip button:focus-visible { outline: 2px solid var(--ks-patina); outline-offset: 1px; }
+  .strip button[aria-pressed='true'] { border-color: var(--ks-kinpaku); background: var(--ks-instrument-raised); }
+  .strip .pos {
+    font-family: var(--ks-mono), monospace; font-size: 10px;
+    color: var(--ks-instrument-muted); min-width: 15px; text-align: right;
+    font-variant-numeric: var(--f1-numeric);
+    padding-right: 2px; border-right: 1px solid var(--ks-instrument-rule);
+  }
+  .strip .dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 9.5px; font-weight: 700; color: #fff;
+    font-variant-numeric: var(--f1-numeric);
+    text-shadow: 0 0 2px rgba(0,0,0,.55);
+  }
+  .strip .code { font-size: 11px; letter-spacing: .07em; font-weight: 500; }
+  .strip .down { font-size: 9.5px; color: var(--ks-instrument-muted); font-family: var(--ks-mono), monospace; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .play:hover { transform: none; }
+  }
+</style>
+
+<script>
+  type Driver = { n: number; code: string; name: string; team: string; colour: string };
+  type Manifest = {
+    frames: number; cars: number; step: number; scale: number;
+    posOffset: number; lapOffset: number; drivers: Driver[]; track: number[][];
+  };
+
+  const root = document.querySelector<HTMLElement>('[data-replay]');
+  const openBtn = document.querySelector<HTMLButtonElement>('[data-replay-open]');
+  if (root && openBtn) {
+    const man: Manifest = JSON.parse(root.dataset.manifest!);
+    const binUrl = root.dataset.bin!;
+    const canvas = root.querySelector<HTMLCanvasElement>('[data-canvas]')!;
+    const ctx = canvas.getContext('2d')!;
+    const strip = root.querySelector<HTMLOListElement>('[data-strip]')!;
+    const scrub = root.querySelector<HTMLInputElement>('[data-scrub]')!;
+    const speedSel = root.querySelector<HTMLSelectElement>('[data-speed]')!;
+    const readout = root.querySelector<HTMLElement>('[data-readout]')!;
+    const loading = root.querySelector<HTMLElement>('[data-loading]')!;
+    const playBtn = root.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+
+    const N = man.cars;
+    let xy: Int16Array | null = null;
+    let pos: Uint8Array | null = null;
+    let lap: Uint8Array | null = null;
+
+    let frame = 0, playing = false, dir = 1, zoom = 4.5, focus = -1;
+    let raf = 0, last = 0, opener: HTMLElement | null = null;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ── data ────────────────────────────────────────────────────────────────
+    async function load() {
+      if (xy) return;
+      const buf = await (await fetch(binUrl)).arrayBuffer();
+      xy = new Int16Array(buf, 0, man.frames * N * 2);
+      pos = new Uint8Array(buf, man.posOffset, man.frames * N);
+      lap = new Uint8Array(buf, man.lapOffset, man.frames * N);
+      loading.hidden = true;
+      buildStrip();
+    }
+
+    const ABSENT = -32768;
+    /** Car position at a fractional frame, interpolated between samples. */
+    function carAt(f: number, car: number): [number, number] | null {
+      if (!xy) return null;
+      const a = Math.min(man.frames - 1, Math.floor(f));
+      const b = Math.min(man.frames - 1, a + 1);
+      const u = f - a;
+      const ia = (a * N + car) * 2, ib = (b * N + car) * 2;
+      const xa = xy[ia], ya = xy[ia + 1], xb = xy[ib], yb = xy[ib + 1];
+      if (xa === ABSENT || ya === ABSENT) return null;
+      if (xb === ABSENT || yb === ABSENT) return [xa, ya];
+      return [xa + (xb - xa) * u, ya + (yb - ya) * u];
+    }
+
+    const orderAt = (f: number) => {
+      const i = Math.min(man.frames - 1, Math.max(0, Math.round(f)));
+      return pos ? Array.from(pos.subarray(i * N, i * N + N)) : [];
+    };
+    const lapOf = (f: number, car: number) => {
+      const i = Math.min(man.frames - 1, Math.max(0, Math.round(f)));
+      return lap ? lap[i * N + car] : 0;
+    };
+
+    // ── strip ───────────────────────────────────────────────────────────────
+    let chips: HTMLButtonElement[] = [];
+    function buildStrip() {
+      strip.innerHTML = '';
+      chips = man.drivers.map((d, i) => {
+        const li = document.createElement('li');
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-pressed', 'false');
+        b.innerHTML =
+          `<span class="pos"></span>` +
+          `<span class="dot" style="background:${d.colour}">${d.n}</span>` +
+          `<span class="code">${d.code}</span><span class="down"></span>`;
+        b.title = `${d.name} — ${d.team}`;
+        b.addEventListener('click', () => { focus = focus === i ? -1 : i; paint(); });
+        li.appendChild(b); strip.appendChild(li);
+        return b;
+      });
+    }
+
+    function updateStrip(f: number) {
+      const ord = orderAt(f);
+      if (!ord.length) return;
+      const leadLap = lapOf(f, ord[0]);
+      ord.forEach((car, p) => {
+        const b = chips[car];
+        if (!b) return;
+        b.querySelector('.pos')!.textContent = String(p + 1);
+        const down = leadLap - lapOf(f, car);
+        b.querySelector('.down')!.textContent = down > 0 ? `+${down}L` : '';
+        b.setAttribute('aria-pressed', String(focus === car));
+        // Reorder without rebuilding, so focus and scroll position survive.
+        const li = b.parentElement!;
+        if (strip.children[p] !== li) strip.insertBefore(li, strip.children[p] ?? null);
+      });
+    }
+
+    // ── drawing ─────────────────────────────────────────────────────────────
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      canvas.width = Math.max(1, Math.round(r.width * dpr));
+      canvas.height = Math.max(1, Math.round(r.height * dpr));
+    }
+
+    function paint() {
+      if (!xy) return;
+      const w = canvas.width, h = canvas.height;
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      const ord = orderAt(frame);
+      const lead = focus >= 0 ? focus : (ord[0] ?? 0);
+      const centre = carAt(frame, lead) ?? [0, 0];
+      const unit = (Math.min(w, h) / 34000) * zoom;
+
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(unit, -unit);                       // y up
+      ctx.translate(-centre[0], -centre[1]);
+
+      if (man.track?.length) {
+        ctx.beginPath();
+        man.track.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.closePath();
+        ctx.lineWidth = 26 / unit * dpr * 0.5;
+        ctx.strokeStyle = 'rgba(255,255,255,.13)';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.lineWidth = 2 / unit;
+        ctx.strokeStyle = 'rgba(255,255,255,.32)';
+        ctx.stroke();
+      }
+
+      // Back of the field first, so leaders sit on top.
+      for (let p = ord.length - 1; p >= 0; p--) {
+        const car = ord[p];
+        const c = carAt(frame, car);
+        if (!c) continue;
+        const d = man.drivers[car];
+        const r = (car === lead ? 13 : 11) * dpr / unit;
+        ctx.beginPath();
+        ctx.arc(c[0], c[1], r, 0, Math.PI * 2);
+        ctx.fillStyle = d.colour;
+        ctx.fill();
+        if (car === lead) {
+          ctx.lineWidth = 2.5 * dpr / unit;
+          ctx.strokeStyle = '#fff';
+          ctx.stroke();
+        }
+        ctx.save();
+        ctx.translate(c[0], c[1]);
+        ctx.scale(1 / unit, -1 / unit);
+        ctx.fillStyle = '#fff';
+        ctx.font = `700 ${10 * dpr}px ui-monospace, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,.6)';
+        ctx.shadowBlur = 3 * dpr;
+        ctx.fillText(String(d.n), 0, 0.5 * dpr);
+        ctx.restore();
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      updateStrip(frame);
+      const t = frame * man.step;
+      const mm = String(Math.floor(t / 60)).padStart(2, '0');
+      const ss = String(Math.floor(t % 60)).padStart(2, '0');
+      const leadLap = lapOf(frame, ord[0] ?? 0);
+      readout.textContent = `Lap ${leadLap} · ${mm}:${ss}`;
+      scrub.value = String(Math.round((frame / (man.frames - 1)) * 1000));
+    }
+
+    // ── playback ────────────────────────────────────────────────────────────
+    function tick(now: number) {
+      if (playing) {
+        const dt = Math.min(0.25, (now - last) / 1000);
+        frame += (dt * Number(speedSel.value) / man.step) * dir;
+        if (frame >= man.frames - 1) { frame = man.frames - 1; setPlaying(false); }
+        if (frame <= 0) { frame = 0; setPlaying(false); }
+        paint();
+      }
+      last = now;
+      raf = requestAnimationFrame(tick);
+    }
+
+    function setPlaying(v: boolean) {
+      playing = v;
+      playBtn.textContent = v ? '❚❚' : '▶';
+      playBtn.setAttribute('aria-label', v ? 'Pause' : 'Play');
+    }
+
+    root.querySelector('[data-act="restart"]')!.addEventListener('click', () => {
+      frame = 0; dir = 1; paint();
+    });
+    root.querySelector('[data-act="back"]')!.addEventListener('click', () => {
+      dir = -1; setPlaying(true);
+    });
+    playBtn.addEventListener('click', () => { dir = 1; setPlaying(!playing); });
+    scrub.addEventListener('input', () => {
+      frame = (Number(scrub.value) / 1000) * (man.frames - 1);
+      setPlaying(false); paint();
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((b) =>
+      b.addEventListener('click', () => {
+        zoom = Math.max(1, Math.min(14, zoom * (Number(b.dataset.zoom) > 0 ? 1.35 : 1 / 1.35)));
+        paint();
+      }));
+
+    // ── open / close ────────────────────────────────────────────────────────
+    async function open() {
+      opener = document.activeElement as HTMLElement;
+      root!.hidden = false;
+      document.body.style.overflow = 'hidden';
+      resize();
+      await load();
+      frame = 0; zoom = 4.5; focus = -1;
+      paint();
+      if (!reduced) { dir = 1; setPlaying(true); }
+      playBtn.focus();
+    }
+    function close() {
+      setPlaying(false);
+      root!.hidden = true;
+      document.body.style.overflow = '';
+      opener?.focus();
+    }
+
+    openBtn.addEventListener('click', open);
+    root.querySelector('[data-replay-close]')!.addEventListener('click', close);
+    addEventListener('keydown', (e) => {
+      if (root!.hidden) return;
+      if (e.key === 'Escape') close();
+      if (e.key === ' ') { e.preventDefault(); dir = 1; setPlaying(!playing); }
+      if (e.key === 'ArrowLeft') { setPlaying(false); frame = Math.max(0, frame - 20); paint(); }
+      if (e.key === 'ArrowRight') { setPlaying(false); frame = Math.min(man.frames - 1, frame + 20); paint(); }
+    });
+    addEventListener('resize', () => { if (!root!.hidden) { resize(); paint(); } });
+    raf = requestAnimationFrame(tick);
+    void raf;
+  }
+</script>

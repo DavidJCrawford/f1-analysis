@@ -15,6 +15,11 @@ import { inScope } from './scope';
 declare const __DATA_DIR__: string;
 const cache = new Map<string, unknown>();
 
+/** Optional read — returns null when the file is absent rather than throwing. */
+function loadMaybe<T>(rel: string): T | null {
+  try { return load<T>(rel); } catch { return null; }
+}
+
 function load<T>(rel: string): T {
   const hit = cache.get(rel);
   if (hit !== undefined) return hit as T;
@@ -57,6 +62,10 @@ export const outlines = () => load<Record<string, Outline>>('outlines.json');
 export const profiles = () => load<Record<string, Profile>>('profiles.json');
 
 export const season = (year: number) => load<SeasonFile>(`seasons/${year}.json`);
+
+/** Replay manifest for a race, when one has been built. */
+export const replay = (year: number, round: number) =>
+  loadMaybe<Record<string, unknown>>(`replays/${year}-${round}.json`);
 export const outline = (circuitId: string): Outline | null => outlines()[circuitId] ?? null;
 export const profile = (circuitId: string): Profile | null => profiles()[circuitId] ?? null;
 

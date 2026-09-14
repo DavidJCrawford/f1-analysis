@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit geo align outlines profile data build preview check banner clean
+.PHONY: help spine emit geo align outlines profile data replays build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -45,6 +45,9 @@ check: ## Type check
 
 clean:
 	rm -rf $(SITE)/dist $(SITE)/node_modules/.astro
+
+replays: ## Build race replays from timing-feed position data (slow; cached)
+	python3 pipeline/replay.py
 
 banner: ## Regenerate the README banner
 	python3 pipeline/banner.py

@@ -7,8 +7,8 @@
 
 <br>
 
-![Status](https://img.shields.io/badge/status-phase_1_%C2%B7_archival_tier-1f1f1f?style=flat-square)
-![Pages](https://img.shields.io/badge/pages-1%2C520_built-1f1f1f?style=flat-square)
+![Status](https://img.shields.io/badge/status-2026_season-1f1f1f?style=flat-square)
+![Data](https://img.shields.io/badge/data-F1_timing_feed-1f1f1f?style=flat-square)
 ![Astro](https://img.shields.io/badge/Astro-7-1f1f1f?style=flat-square&logo=astro&logoColor=white)
 ![three.js](https://img.shields.io/badge/three.js-r186-1f1f1f?style=flat-square&logo=threedotjs&logoColor=white)
 
@@ -16,32 +16,36 @@
 
 <br>
 
-A static, editorial encyclopaedia of Formula 1. Every circuit, team and race gets one
-designed page, one permanent URL, and — where the data exists — a real 3D track you
-can fly a lap of.
+The 2026 Formula 1 season, circuit by circuit. Every round and every track gets one
+designed page and one permanent URL, built from Formula 1's own timing feed — and
+every race that has run can be replayed, car by car.
 
 The opposite of a live-timing dashboard, deliberately.
 
 <br>
 
-## Tiers
+## What's in it
 
-Telemetry begins in 2018. That leaves ~85% of races with no lap data at all, so
-coverage is a designed system rather than an apology: each tier gets its own template
-and its own charts.
+| | |
+|:--|--:|
+| Rounds | 23 |
+| Circuits | 23 |
+| Teams | 11 |
+| Circuits with exact start/finish from the timing feed | 23 / 23 |
+| Circuits with official corner positions | 22 / 23 |
 
-| Tier | Years | Adds | Races |
-|:--|:--|:--|--:|
-| **Archival** | 1950–1995 | Results, grid, championship, lineage | 581 |
-| **Timing** | 1996–2017 | Lap charts, race trace, stints, pit analysis | 395 |
-| **Telemetry** | 2018–2022 | Speed traces, mini-sectors, 3D replay | 103 |
-| **Modern** | 2023–2026 | Cross-source enrichment | 93 |
+**Race replay.** Every completed round plays back from raw position data — all 22
+cars at 2 Hz, as coloured dots on the real circuit, with the camera following the
+leader or any car you pick from the running order. Pause, rewind, scrub, and change
+speed.
 
-3D is tiered too — hand-authored for 8–12 hero circuits, procedural for ~40, 2D
-outline for the rest. Polishing 160 layouts is not affordable and pretending
-otherwise is how projects die.
+**Circuit pages** carry the track drawn from feed geometry, its official corners
+highlighted along their full length, an unrolled curvature profile of the lap, and
+where the circuit sits against the rest of the calendar for length and turn count.
 
-<br>
+The architecture still supports the full 1950–2026 archive — 1,172 races, 78
+circuits, 1,520 pages. It is narrowed to one season by a single switch in
+[`scope.ts`](site/src/lib/scope.ts); see [SPEC §4.3](Docs/SPEC.md).
 
 ## Data
 
@@ -79,7 +83,8 @@ site links to the formula that produced it.
 ## Build
 
 ```bash
-make data      # F1DB release -> canonical JSON -> circuit outline crosswalk
+make data      # F1DB release -> canonical JSON -> geometry -> curvature profiles
+make replays   # race position data from the timing feed (slow first run, cached)
 make build     # Astro build + Pagefind index
 make preview
 ```

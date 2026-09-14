@@ -42,9 +42,14 @@ LABEL_Y, RULE_Y, MAST_Y = SHAPE_TOP + SHAPE_H + 20, 220, 276
 F = "'Helvetica Neue',Helvetica,Arial,sans-serif"
 
 feats = {f["properties"]["id"]: f for f in json.loads(GEO.read_text())["features"]}
-counts = json.loads((DATA / "meta.json").read_text())["counts"]
-STATS = [("SEASONS", f"{counts['seasons']:,}"), ("RACES", f"{counts['races']:,}"),
-         ("CIRCUITS", f"{counts['circuits']:,}"), ("CONSTRUCTORS", f"{counts['constructors']:,}")]
+# Scoped to what the site actually publishes, not to the whole corpus.
+_races = json.loads((DATA / "races.json").read_text())
+_year = max(r["year"] for r in _races)
+_season = json.loads((DATA / f"seasons/{_year}.json").read_text())
+_rounds = [r for r in _races if r["year"] == _year]
+STATS = [("SEASON", str(_year)), ("ROUNDS", str(len(_rounds))),
+         ("CIRCUITS", str(len({r["circuitId"] for r in _rounds}))),
+         ("TEAMS", str(len(_season["constructorStandings"])))]
 
 
 def path_for(fid, cx, cy, maxw, maxh):
@@ -86,7 +91,7 @@ def build(dark: bool) -> str:
     s += [f'<text x="{PAD}" y="{MAST_Y}" font-family="{F}" font-size="44" font-weight="200" '
           f'letter-spacing="6" fill="{word}">F1 ANALYSIS</text>',
           f'<text x="{PAD}" y="{MAST_Y+28}" font-family="{F}" font-size="13" fill="{mute}">'
-          f'Every race, circuit and team in Formula 1 — one permanent page each.</text>']
+          f'The {_year} Formula 1 season — every round and every track.</text>']
     for j, (lbl, val) in enumerate(STATS):
         x = W - PAD - (len(STATS)-1-j)*124
         s += [f'<text x="{x}" y="{MAST_Y-14}" text-anchor="end" font-family="{F}" font-size="9" '

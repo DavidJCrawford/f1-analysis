@@ -18,6 +18,7 @@ const yAt = (k: number) => CY - Math.sign(k) * Math.sqrt(Math.abs(k) / kMax) * A
 // Two dashed strokes offset by half a period, as on the circuit map, over a
 // black ground so the dark squares are painted rather than left as holes.
 const SF_CELL = 8;
+const SF_EDGE = 2;            // black border, drawn as part of the ground fill
 const SF_TOP = CY - AMP - 6;
 const SF_ROWS = Math.round(((CY + AMP + 6) - SF_TOP) / SF_CELL);
 const SF_H = SF_ROWS * SF_CELL;
@@ -84,17 +85,14 @@ const labelX = labelSeg
 
     {sfBars.map((cx) => (
       <>
-        <rect class="sf-ground" x={cx - SF_CELL} y={SF_TOP}
-              width={SF_CELL * 2} height={SF_H} />
-        {[0, 1].map((col) => (
-          <line class="sf" x1={cx - SF_CELL / 2 + col * SF_CELL} y1={SF_TOP}
-                x2={cx - SF_CELL / 2 + col * SF_CELL} y2={SF_TOP + SF_H}
-                stroke-width={SF_CELL}
-                stroke-dasharray={`${SF_CELL} ${SF_CELL}`}
-                stroke-dashoffset={col === 0 ? 0 : SF_CELL} />
-        ))}
-        <rect class="sf-frame" x={cx - SF_CELL} y={SF_TOP}
-              width={SF_CELL * 2} height={SF_H} />
+        <rect class="sf-ground" x={cx - SF_CELL - SF_EDGE} y={SF_TOP - SF_EDGE}
+              width={SF_CELL * 2 + SF_EDGE * 2} height={SF_H + SF_EDGE * 2} />
+        {Array.from({ length: SF_ROWS }, (_, row) =>
+          [0, 1].filter((col) => (row + col) % 2 === 0).map((col) => (
+            <rect class="sf" x={cx - SF_CELL + col * SF_CELL}
+                  y={SF_TOP + row * SF_CELL}
+                  width={SF_CELL} height={SF_CELL} />
+          )))}
       </>
     ))}
     <path class="ribbon" d={ribbon} />
@@ -121,16 +119,17 @@ const labelX = labelSeg
 
   .ribbon { fill: var(--ks-ink); fill-opacity: 0.1; stroke: var(--ks-ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
   .axis   { stroke: var(--ks-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
-  /* The ground and the white dashes cover the same area exactly, so any black
-     showing at the edge is sub-pixel antialiasing — it appeared as a hairline
-     of uneven width. An explicit frame makes it deliberate instead, and
-     non-scaling-stroke holds it at 1px whatever the chart is scaled to. */
+  /* The chart scales by viewBox, so its units never land on whole device
+     pixels and every edge here was antialiased — invisible at 2x, obvious on a
+     1x display. These shapes are strictly axis-aligned, which is exactly the
+     case shape-rendering: crispEdges is for: the renderer snaps each edge to
+     the pixel grid instead of blending it. Squares may vary by a pixel as a
+     result, which is imperceptible; a smeared edge is not.
+     The border is the black ground extended past the squares, not a stroke: a
+     stroke is centred on the boundary, so it always straddles two pixels. */
+  .sf-ground, .sf { shape-rendering: crispEdges; }
   .sf-ground { fill: #000; }
-  .sf { stroke: #fff; }
-  .sf-frame {
-    fill: none; stroke: #000; stroke-width: 1px;
-    vector-effect: non-scaling-stroke;
-  }
+  .sf { fill: #fff; }
   .apex   { stroke: var(--f1-corner); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .straight { fill: var(--ks-ink); fill-opacity: 0.05; }
 

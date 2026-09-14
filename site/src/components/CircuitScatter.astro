@@ -1,0 +1,124 @@
+---
+import type { Circuit } from '@lib/types';
+
+interface Props { circuits: Circuit[]; current: Circuit; }
+const { circuits, current } = Astro.props;
+
+const W = 660, H = 430;
+const M = { t: 18, r: 18, b: 46, l: 42 };
+const PW = W - M.l - M.r, PH = H - M.t - M.b;
+
+type Pt = { c: Circuit; x: number; y: number };
+const pop = circuits.filter((c) => c.length != null && c.turns != null);
+
+// The distribution has a long tail — one circuit at 25.6 km, another at 48
+// turns. Plotting the full range squashes the other 76 into a corner, so the
+// axes are clipped and the excluded circuits are named in the caption rather
+// than quietly dropped. If the circuit being viewed is itself an outlier, the
+// axis stretches to include it: its own page must never omit it.
+const CLIP_X = 8.6, CLIP_Y = 30;
+const xMax = Math.max(CLIP_X, current.length ?? 0);
+const yMax = Math.max(CLIP_Y, current.turns ?? 0);
+const xMin = 3, yMin = 0;
+
+const inRange = (c: Circuit) => c.length! <= xMax && c.turns! <= yMax;
+const shown = pop.filter(inRange);
+const omitted = pop.filter((c) => !inRange(c));
+
+const sx = (v: number) => M.l + ((v - xMin) / (xMax - xMin)) * PW;
+const sy = (v: number) => M.t + PH - ((v - yMin) / (yMax - yMin)) * PH;
+
+const pts: Pt[] = shown.map((c) => ({ c, x: sx(c.length!), y: sy(c.turns!) }));
+const self = pts.find((p) => p.c.id === current.id);
+
+const med = (a: number[]) => { const s = [...a].sort((x, y) => x - y);
+  return s.length % 2 ? s[(s.length - 1) / 2]! : (s[s.length / 2 - 1]! + s[s.length / 2]!) / 2; };
+const medLen = med(pop.map((c) => c.length!));
+const medTurns = med(pop.map((c) => c.turns!));
+
+const xTicks = Array.from({ length: Math.floor(xMax - xMin) + 1 }, (_, i) => xMin + i)
+  .filter((v) => v <= xMax);
+const yStep = yMax > 34 ? 8 : 4;
+const yTicks = Array.from({ length: Math.floor(yMax / yStep) + 1 }, (_, i) => i * yStep)
+  .filter((v) => v >= yMin);
+
+const density = current.length && current.turns ? current.turns / current.length : null;
+const medDensity = medTurns / medLen;
+---
+<figure class="scatter" role="group">
+  <figcaption class="eyebrow">Where this circuit sits · {pop.length} circuits</figcaption>
+
+  <svg viewBox={`0 0 ${W} ${H}`} class="chart" role="img"
+       aria-label={`Scatter plot of circuit length against turn count for ${pop.length} circuits. ${current.name} has ${current.turns} turns over ${current.length?.toFixed(3)} kilometres, against a median of ${medTurns} turns over ${medLen.toFixed(3)} kilometres.`}>
+
+    {yTicks.map((v) => (
+      <>
+        <line class="grid" x1={M.l} y1={sy(v)} x2={W - M.r} y2={sy(v)} />
+        <text class="tick" x={M.l - 10} y={sy(v) + 4} text-anchor="end">{v}</text>
+      </>
+    ))}
+    {xTicks.map((v) => (
+      <>
+        <line class="grid" x1={sx(v)} y1={M.t} x2={sx(v)} y2={M.t + PH} />
+        <text class="tick" x={sx(v)} y={M.t + PH + 20} text-anchor="middle">{v} km</text>
+      </>
+    ))}
+
+    <line class="median" x1={sx(medLen)} y1={M.t} x2={sx(medLen)} y2={M.t + PH} />
+    <line class="median" x1={M.l} y1={sy(medTurns)} x2={W - M.r} y2={sy(medTurns)} />
+    <text class="medlabel" x={sx(medLen) + 6} y={M.t + 11}>median length</text>
+    <text class="medlabel" x={W - M.r} y={sy(medTurns) - 7} text-anchor="end">median turns</text>
+
+    {pts.filter((p) => p.c.id !== current.id).map((p) => (
+      <circle class="dot" cx={p.x} cy={p.y} r="4.5" />
+    ))}
+
+    {self && (
+      <>
+        <circle class="halo" cx={self.x} cy={self.y} r="11" />
+        <circle class="self" cx={self.x} cy={self.y} r="5.5" />
+        <text class="selflabel" x={self.x} y={self.y - 19} text-anchor="middle">{current.name}</text>
+      </>
+    )}
+
+    <text class="axis-title" x={M.l + PW / 2} y={H - 6} text-anchor="middle">circuit length</text>
+    <text class="axis-title" x={-(M.t + PH / 2)} y="13" text-anchor="middle"
+          transform="rotate(-90)">turns</text>
+  </svg>
+
+  <p class="ui muted note">
+    {current.turns} turns over <span class="num">{current.length?.toFixed(3)}</span> km
+    {density && (
+      <> — <strong class="num">{density.toFixed(1)}</strong> turns per kilometre, against a
+      median of <strong class="num">{medDensity.toFixed(1)}</strong> across all {pop.length} circuits</>
+    )}.
+    {omitted.length > 0 && (
+      <> Outside the axes: {omitted.map((c, i) => (
+        <>{i > 0 && ', '}{c.name} (<span class="num">{c.length!.toFixed(1)} km</span>, {c.turns} turns)</>
+      ))}.</>
+    )}
+  </p>
+</figure>
+
+<style>
+  .scatter { margin: 0; }
+  .chart { display: block; width: 100%; height: auto; margin-top: 14px; }
+
+  .grid   { stroke: var(--ks-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .median { stroke: var(--ks-edge); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+
+  .dot  { fill: var(--ks-ink); fill-opacity: .3; }
+  .halo { fill: var(--ks-kinpaku); fill-opacity: .2; }
+  .self { fill: var(--ks-kinpaku-deep); }
+
+  .tick, .medlabel, .axis-title, .selflabel {
+    font-family: var(--ks-mono), monospace; fill: var(--ks-text-muted);
+  }
+  .tick       { font-size: 11px; font-variant-numeric: var(--f1-numeric); }
+  .medlabel   { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; fill: var(--ks-text-mute-deep); }
+  .axis-title { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .selflabel  { font-size: 12px; letter-spacing: .04em; fill: var(--ks-ink); }
+
+  .note { margin-top: 14px; }
+  .note strong { font-weight: 600; color: var(--ks-ink); }
+</style>

@@ -38,7 +38,7 @@ const CHEQUER = showStart && height >= 240;
 // chequer whose squares meet edge to edge. Drawing individual polygons instead
 // leaves them touching only at the corners, which reads as a scatter rather
 // than a line.
-const CELL = 1.9, COLS = 9;                       // px
+const CELL = 3.8, COLS = 9;                       // px
 const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
 const sN = startFrame.n;
 const sT: [number, number] = [-sN[1], sN[0]];     // along the track

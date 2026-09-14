@@ -48,17 +48,6 @@ const topWinners = [...winners.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5
           <h2 class="title-lg">Shape of a lap</h2>
           <TrackProfile profile={prof} name={c.name} />
           <TrackLink />
-          <p class="ui muted measure" style="margin-top:1.2rem">
-            {prof.cornersAreOfficial
-              ? <>The red sections are the circuit's official corners, positioned from
-                  the Formula 1 timing feed. Their extent — where each one begins and
-                  ends — is measured from the geometry, since the feed publishes a
-                  position for each corner but not its length.</>
-              : <>The red sections are where the track curves tighter than a 220&nbsp;m
-                  radius, measured from the geometry. The timing feed does not cover
-                  this circuit, so these are derived rather than official, and the
-                  published turn count is shown above for comparison.</>}
-          </p>
         </section>
       )}
       </>

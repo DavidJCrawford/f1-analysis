@@ -24,6 +24,8 @@ const xOfDist = (d: number) => PADX + (d / p.length) * (W - PADX * 2);
 
 // Straights: the gaps between detected corners, wrapping the start/finish line.
 const cs = p.corners;
+const lefts = cs.filter((c) => c.dir === 'L').length;
+
 const straights = cs.map((c, i) => {
   const next = cs[(i + 1) % cs.length]!;
   const from = c.exit;
@@ -33,7 +35,6 @@ const straights = cs.map((c, i) => {
 const longest = straights[0];
 
 
-const lefts = cs.filter((c) => c.dir === 'L').length;
 ---
 <figure class="profile" role="group">
   <figcaption class="eyebrow">
@@ -69,17 +70,6 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
     )}
   </svg>
 
-  <p class="ui muted note">
-    <strong class="num">{cs.length}</strong> corners
-    {p.cornersAreOfficial ? ' from the official timing feed' : ' detected from the trace'}{' '}
-    — {lefts} left, {cs.length - lefts} right
-    {p.officialTurns != null && !p.cornersAreOfficial && (
-      <> · official count <strong class="num">{p.officialTurns}</strong>
-      {p.officialTurns !== cs.length && (
-        <span class="disagree"> (differs by {Math.abs(p.officialTurns - cs.length)})</span>
-      )}</>
-    )}
-  </p>
 </figure>
 
 <style>
@@ -100,7 +90,4 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
   .chart.is-hovering .hover-band { fill-opacity: .18; }
   .chart.is-hovering .hover-line { opacity: 1; }
 
-  .note { margin-top: 14px; }
-  .note strong { font-weight: 600; color: var(--ks-ink); }
-  .disagree { color: var(--ks-text-muted); }
 </style>

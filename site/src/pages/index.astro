@@ -11,11 +11,11 @@ const year = seasons()[0]!.year;
 const s = season(year);
 const m = meta();
 
-const HERO = ['monza', 'spa-francorchamps', 'monaco', 'silverstone', 'suzuka', 'interlagos'];
-const gallery = HERO
-  .map((id) => ({ circuit: circuits().find((x) => x.id === id), outline: outline(id) }))
-  .filter((h): h is { circuit: NonNullable<typeof h.circuit>; outline: NonNullable<typeof h.outline> } =>
-    Boolean(h.circuit && h.outline));
+const allCircuits = circuits()
+  .map((x) => ({ c: x, o: outline(x.id), held: x.racesHeld ?? 0 }))
+  .sort((a, b) => b.held - a.held || a.c.name.localeCompare(b.c.name));
+const withOutline = allCircuits.filter((x) => x.o);
+const without = allCircuits.filter((x) => !x.o);
 
 const next = s.races.find((r) => r.date > m.dataAsOf);
 const last = [...s.races].reverse().find((r) => r.date <= m.dataAsOf);
@@ -88,35 +88,56 @@ const lastWinner = last
     </div>
   </section>
 
-  <section class="wrap section">
-    <h2 class="eyebrow">Circuits</h2>
-    <div class="circuit-row">
-      {gallery.map(({ circuit, outline }) => (
-        <a class="circuit-cell plain" href={u(`/circuits/${circuit.id}/`)}>
-          <CircuitOutline outline={outline} name={circuit.name} height={104} />
-          <span class="mono">{circuit.name}</span>
+  <section class="wrap section" id="circuits" data-pagefind-body>
+    <h2 class="title-lg">Circuits</h2>
+    <p class="lead" style="margin-top:.8em">
+      The {c.circuits} circuits on the {year} calendar, ordered by how often they have
+      held a Grand Prix.
+    </p>
+
+    <div class="gallery" style="margin-top:2.6rem">
+      {withOutline.map(({ c: ci, o }) => (
+        <a class="cell plain" href={u(`/circuits/${ci.id}/`)}>
+          <CircuitOutline outline={o!} name={ci.name} height={110} />
+          <span class="title">{ci.name}</span>
+          <span class="ui muted">{ci.place}, {ci.country}</span>
         </a>
       ))}
     </div>
-    <p style="margin-top:2rem"><a href={u('/circuits/')}>All {c.circuits} circuits</a></p>
-  </section>
 
-  <section class="wrap section">
-    <h2 class="title-lg">Built from the timing feed</h2>
-    <p class="lead" style="margin-top:.8em">
-      Circuit geometry, corner positions and start/finish lines come from Formula 1's
-      own timing data rather than traced maps — so a corner is where the corner is,
-      and the chequer is on the actual line.
-    </p>
+    {without.length > 0 && (
+      <div style="margin-top:4rem">
+        <h3 class="title">Without verified geometry</h3>
+        <p class="ui muted measure" style="margin-top:.6rem">
+          No outline is shown for these. Either no open geometry exists, or the available
+          trace disagreed with the recorded circuit length by enough that the join could not
+          be trusted — a wrong outline is worse than none.
+        </p>
+        <ul class="plainlist" style="margin-top:1.2rem">
+          {without.map(({ c: ci }) => (
+            <li>
+              <a href={u(`/circuits/${ci.id}/`)}>{ci.name}</a>
+              <span class="ui muted"> — {ci.place}, {ci.country}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
   </section>
 </Base>
 
 <style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px, 3vw, 40px); padding-block: 26px; }
   .three-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(24px, 4vw, 48px); }
-  .circuit-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(18px, 3vw, 36px); margin-top: 1.4rem; }
-  @media (width >= 560px) { .circuit-row { grid-template-columns: repeat(3, 1fr); } }
-  @media (width >= 1000px) { .circuit-row { grid-template-columns: repeat(6, 1fr); } }
-  .circuit-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--ks-ink); text-align: center; transition: transform var(--ks-quick) var(--ks-ease); }
-  .circuit-cell:hover { transform: translateY(-1px); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: clamp(26px, 3vw, 44px); }
+  .cell {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    text-align: center; color: var(--ks-ink);
+    transition: transform var(--ks-quick) var(--ks-ease);
+  }
+  .cell :global(svg) { margin-bottom: 6px; }
+  .cell:hover { transform: translateY(-1px); }
+  .plainlist { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 40px; }
+  .plainlist li { break-inside: avoid; padding: 5px 0; }
+  @media (prefers-reduced-motion: reduce) { .cell:hover { transform: none; } }
 </style>

@@ -11,7 +11,7 @@ const { title, description = 'Every race, circuit and team in Formula 1 — one 
 const year = seasons()[0]!.year;
 const NAV = [
   { href: '/races/', label: 'Races' },
-  { href: '/circuits/', label: 'Circuits' },
+  { href: '/#circuits', label: 'Circuits' },
   { href: '/teams/', label: 'Teams' },
   { href: `/seasons/${year}/`, label: 'Standings' },
 ];
@@ -43,7 +43,8 @@ const path = Astro.url.pathname;
                 <a
                   class="plain nav-link"
                   href={u(item.href)}
-                  aria-current={path.startsWith(u(item.href)) ? 'page' : undefined}
+                  aria-current={!item.href.includes('#') && path.startsWith(u(item.href))
+                    ? 'page' : undefined}
                 >{item.label}</a>
               </li>
             ))}

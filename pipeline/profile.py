@@ -139,6 +139,15 @@ for cid, v in sorted(lines.items()):
     dk = smooth_closed(curvature(list(zip(dxs, dys))), 5)
     dk = [0.0 if abs(k) < 1.0 / FLAT_RADIUS else k for k in dk]
 
+    # A start/finish line is always on a straight. Both geometry sources begin
+    # their trace at an arbitrary vertex, and at Silverstone the two disagree by
+    # 135 degrees of the lap — so the trace start cannot be assumed to be the
+    # real line. Where it lands on a curve it certainly is not, and the map
+    # draws no chequer rather than marking a false one.
+    START_STRAIGHT_RADIUS = 400.0
+    start_k = max(abs(dk[i % len(dk)]) for i in range(-2, 3))
+    start_on_straight = start_k < 1.0 / START_STRAIGHT_RADIUS
+
     corners = find_corners(kappa, STEP)
     length = len(rs) * STEP
     official = circuits[cid].get("turns")
@@ -149,6 +158,7 @@ for cid, v in sorted(lines.items()):
         # Display curvature, signed, in 1/km so the numbers stay small in JSON.
         "k": [round(k * 1000, 3) for k in dk[::stride]],
         "corners": corners, "detected": len(corners), "officialTurns": official,
+        "startOnStraight": start_on_straight,
     }
     report.append((cid, len(corners), official, length, circuits[cid]["length"], v["spacing"]))
 
@@ -161,5 +171,7 @@ print(f"{'circuit':22} {'detected':>8} {'official':>8} {'spacing':>8}")
 for cid, d, o, gl, rl, sp in sorted(report, key=lambda r: -(r[1] or 0))[:10]:
     flag = "" if o and abs(d - o) <= 2 else "   <-- differs by >2"
     print(f"{cid:22} {d:8} {str(o or '-'):>8} {sp:7.1f}m{flag}")
+off = [c for c, v in profiles.items() if not v["startOnStraight"]]
 print(f"\n{len(profiles)} profiles · exact match {exact}/{len(report)} · within 2 {close}/{len(report)}")
+print(f"trace start lands on a curve for {len(off)} circuit(s) — no chequer drawn: {', '.join(sorted(off)) or 'none'}")
 print(f"{(DATA/'profiles.json').stat().st_size/1024:.0f} KB")

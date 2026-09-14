@@ -1,0 +1,134 @@
+---
+// Links the circuit map and the lap profile: pointing at one highlights the
+// corresponding place on the other. The only client-side JavaScript on the
+// site, and it is purely additive — every figure it surfaces is already stated
+// in the page text and the SVG descriptions, so nothing is lost without it.
+---
+<script>
+  type Link = { pts: [number, number][]; length: number; corners: [number, number][] };
+  type Prof = { w: number; padx: number; length: number; cy: number; amp: number };
+
+  const mapEl = document.querySelector<SVGSVGElement>('[data-track-map]');
+  const chartEl = document.querySelector<SVGSVGElement>('[data-track-profile]');
+  if (mapEl && chartEl) {
+    // Rebound so the non-null narrowing survives into the closures below.
+    const map = mapEl, chart = chartEl;
+    const link: Link = JSON.parse(map.dataset.trackMap!);
+    const prof: Prof = JSON.parse(chart.dataset.trackProfile!);
+
+    const dot = map.querySelector<SVGCircleElement>('.hover-dot')!;
+    const band = chart.querySelector<SVGRectElement>('.hover-band')!;
+    const line = chart.querySelector<SVGLineElement>('.hover-line')!;
+    const arcs = [...map.querySelectorAll<SVGPathElement>('.corner-arc')];
+
+    // Cumulative arc length along the rendered polyline, so a pointer position
+    // and a distance along the lap are interchangeable.
+    const pts = link.pts;
+    const seg: number[] = [];
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      seg.push(d); total += d;
+    }
+
+    const xOfDist = (d: number) =>
+      prof.padx + (d / prof.length) * (prof.w - prof.padx * 2);
+
+    function nearest(px: number, py: number) {
+      let bestD2 = Infinity, bestAcc = 0, bx = 0, by = 0, acc = 0;
+      for (let i = 0; i < seg.length; i++) {
+        const [ax, ay] = pts[i], [cx, cy] = pts[i + 1];
+        const vx = cx - ax, vy = cy - ay;
+        const l2 = vx * vx + vy * vy;
+        let t = l2 ? ((px - ax) * vx + (py - ay) * vy) / l2 : 0;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const qx = ax + vx * t, qy = ay + vy * t;
+        const d2 = (px - qx) ** 2 + (py - qy) ** 2;
+        if (d2 < bestD2) { bestD2 = d2; bestAcc = acc + seg[i] * t; bx = qx; by = qy; }
+        acc += seg[i];
+      }
+      return { d2: bestD2, frac: total ? bestAcc / total : 0, x: bx, y: by };
+    }
+
+    function pointAt(frac: number) {
+      let target = ((frac % 1) + 1) % 1 * total;
+      for (let i = 0; i < seg.length; i++) {
+        if (target <= seg[i]) {
+          const t = seg[i] ? target / seg[i] : 0;
+          return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
+                  pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t];
+        }
+        target -= seg[i];
+      }
+      return pts[0];
+    }
+
+    /** Index of the cornering section containing this lap distance, or -1. */
+    function cornerAt(metres: number) {
+      return link.corners.findIndex(([a, b]) =>
+        b >= a ? metres >= a && metres <= b            // ordinary
+               : metres >= a || metres <= b);          // crosses start/finish
+    }
+
+    function show(frac: number, x: number, y: number) {
+      const metres = frac * link.length;
+      dot.setAttribute('cx', String(x));
+      dot.setAttribute('cy', String(y));
+      map.classList.add('is-hovering');
+      chart.classList.add('is-hovering');
+
+      const px = xOfDist(metres);
+      line.setAttribute('x1', String(px));
+      line.setAttribute('x2', String(px));
+
+      const ci = cornerAt(metres);
+      arcs.forEach((a, i) => a.classList.toggle('is-active', i === ci));
+      if (ci >= 0) {
+        const [a, b] = link.corners[ci];
+        const x1 = xOfDist(a);
+        const x2 = xOfDist(b >= a ? b : link.length);   // clip a wrapping corner
+        band.setAttribute('x', String(Math.min(x1, x2)));
+        band.setAttribute('width', String(Math.abs(x2 - x1)));
+      } else {
+        band.setAttribute('width', '0');
+      }
+    }
+
+    function clear() {
+      map.classList.remove('is-hovering');
+      chart.classList.remove('is-hovering');
+      band.setAttribute('width', '0');
+      arcs.forEach((a) => a.classList.remove('is-active'));
+    }
+
+    const toLocal = (svg: SVGSVGElement, e: PointerEvent) => {
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return null;
+      return new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+    };
+
+    // Pointing at the map. The track is a thin line, so the nearest point is
+    // snapped to rather than requiring a direct hit — but only within reach of
+    // it, or the whole panel would respond.
+    const REACH = 0.13;
+    map.addEventListener('pointermove', (e) => {
+      const p = toLocal(map, e);
+      if (!p) return;
+      const n = nearest(p.x, p.y);
+      if (Math.sqrt(n.d2) > REACH) { clear(); return; }
+      show(n.frac, n.x, n.y);
+    });
+    map.addEventListener('pointerleave', clear);
+
+    // And the reverse: pointing at the profile marks the place on the map.
+    chart.addEventListener('pointermove', (e) => {
+      const p = toLocal(chart, e);
+      if (!p) return;
+      const frac = (p.x - prof.padx) / (prof.w - prof.padx * 2);
+      if (frac < 0 || frac > 1) { clear(); return; }
+      const [x, y] = pointAt(frac);
+      show(frac, x, y);
+    });
+    chart.addEventListener('pointerleave', clear);
+  }
+</script>

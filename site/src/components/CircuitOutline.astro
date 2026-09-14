@@ -31,6 +31,12 @@ const cy = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
  * as three turns. Numbering derived sections would assert something the
  * geometry cannot support.
  */
+const linkData = marked ? JSON.stringify({
+  pts: outline.points.map(([x, y]) => [+px(x).toFixed(4), +px(y).toFixed(4)]),
+  length: lapLength,
+  corners: corners.map((c) => [c.entry, c.exit]),
+}) : null;
+
 const arcs = marked ? corners.map((c) =>
   subPath(outline.points, c.entry / lapLength!, c.exit / lapLength!)
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
@@ -60,6 +66,7 @@ const rows = [0.5, -0.5].map((side, i) => {
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
+  data-track-map={linkData}
   aria-label={`Outline of ${name}${marked ? `, with ${corners.length} cornering sections highlighted in red` : ''}${showStart ? ', and a chequered line at start and finish' : ''}`}
 >
   <path
@@ -69,12 +76,17 @@ const rows = [0.5, -0.5].map((side, i) => {
     vector-effect="non-scaling-stroke"
   />
 
-  {arcs.map((a) => (
-    <path class="corner-arc" d={a} fill="none"
+  {arcs.map((a, i) => (
+    <path class="corner-arc" data-corner={i} d={a} fill="none"
           style={`stroke-width:${stroke * 2.6}px`}
           stroke-linecap="round" stroke-linejoin="round"
           vector-effect="non-scaling-stroke" />
   ))}
+
+  {marked && (
+    <circle class="hover-dot" r={unit(4.2)} cx="0" cy="0"
+            style={`stroke-width:${stroke}px`} />
+  )}
 
   {CHEQUER
     ? rows.map((r) => (
@@ -87,6 +99,14 @@ const rows = [0.5, -0.5].map((side, i) => {
 
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
-  .corner-arc { stroke: var(--f1-corner); }
+  .corner-arc { stroke: var(--f1-corner); transition: stroke var(--ks-quick) var(--ks-ease); }
+  .corner-arc.is-active { stroke: var(--ks-kinpaku); }
+
+  .hover-dot {
+    fill: var(--ks-kinpaku); stroke: var(--ks-instrument);
+    opacity: 0; pointer-events: none;
+    vector-effect: non-scaling-stroke;
+  }
+  .outline.is-hovering .hover-dot { opacity: 1; }
   .chequer { stroke: currentColor; }
 </style>

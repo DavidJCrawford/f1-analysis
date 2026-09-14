@@ -5,6 +5,7 @@ import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
 import TrackProfile from '@components/TrackProfile.astro';
 import CircuitScatter from '@components/CircuitScatter.astro';
+import TrackLink from '@components/TrackLink.astro';
 import { circuits, circuit, outline, profile, racesAtCircuit, season,
          currentSeasonYear, seasonCircuits } from '@lib/data';
 import { u } from '@lib/url';
@@ -40,6 +41,7 @@ const last = held[0];
         <CircuitOutline
           outline={o} name={c.name} height={440} stroke={1.75}
           corners={prof?.corners ?? []} lapLength={prof?.length}
+          showStart={prof?.startOnStraight ?? false}
         />
       </div>
 
@@ -47,6 +49,7 @@ const last = held[0];
         <section class="profile-block">
           <h2 class="title-lg">Shape of a lap</h2>
           <TrackProfile profile={prof} name={c.name} />
+          <TrackLink />
           <p class="ui muted measure" style="margin-top:1.2rem">
             The red sections are where the track curves tighter than a 220&nbsp;m
             radius, measured from the geometry. They are deliberately not numbered:

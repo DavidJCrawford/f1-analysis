@@ -41,6 +41,7 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
   </figcaption>
 
   <svg viewBox={`0 0 ${W} ${H}`} class="chart"
+       data-track-profile={JSON.stringify({ w: W, padx: PADX, length: p.length, cy: CY, amp: AMP })}
        role="img"
        aria-label={`Curvature profile of ${name}. ${cs.length} detected corners, ${lefts} left and ${cs.length - lefts} right, around a ${(p.length / 1000).toFixed(3)} kilometre lap.`}>
     {longest && (
@@ -49,12 +50,15 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
             height={(AMP + 10) * 2} />
     )}
 
+    <rect class="hover-band" x="0" y={CY - AMP - 6} width="0" height={(AMP + 6) * 2} />
     <line class="axis" x1={PADX} y1={CY} x2={W - PADX} y2={CY} />
     <path class="ribbon" d={ribbon} />
 
     {cs.map((c) => (
       <line class="apex" x1={xOfDist(c.apex)} y1={CY - 3} x2={xOfDist(c.apex)} y2={CY + 3} />
     ))}
+
+    <line class="hover-line" x1="0" y1={CY - AMP - 6} x2="0" y2={CY + AMP + 6} />
 
 
     {longest && (
@@ -84,10 +88,16 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
   .ribbon { fill: var(--ks-ink); fill-opacity: 0.1; stroke: var(--ks-ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
   .axis   { stroke: var(--ks-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
   .apex   { stroke: var(--f1-corner); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-  .straight { fill: var(--ks-kinpaku); fill-opacity: 0.07; }
+  .straight { fill: var(--ks-ink); fill-opacity: 0.05; }
 
   .ann  { font-family: var(--ks-mono), monospace; font-size: 11px; letter-spacing: .1em;
-          text-transform: uppercase; fill: var(--ks-kinpaku-deep); }
+          text-transform: uppercase; fill: var(--ks-text-mute-deep); }
+
+  .hover-band { fill: var(--ks-kinpaku); fill-opacity: 0; }
+  .hover-line { stroke: var(--ks-kinpaku-deep); stroke-width: 1; opacity: 0;
+                vector-effect: non-scaling-stroke; }
+  .chart.is-hovering .hover-band { fill-opacity: .18; }
+  .chart.is-hovering .hover-line { opacity: 1; }
 
   .note { margin-top: 14px; }
   .note strong { font-weight: 600; color: var(--ks-ink); }

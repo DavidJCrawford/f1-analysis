@@ -34,6 +34,26 @@ const straights = cs.map((c, i) => {
 }).filter((s) => s.len > 250).sort((a, b) => b.len - a.len);
 const longest = straights[0];
 
+// A straight that runs through the start/finish line sits at both ends of the
+// axis. Drawn as one rect it was clipped at the right edge and the far half
+// never appeared, so split it into the two pieces it actually occupies.
+const wraps = !!longest && longest.to > p.length;
+const segments: [number, number][] = !longest
+  ? []
+  : wraps
+    ? [[longest.from, p.length], [0, longest.to - p.length]]
+    : [[longest.from, longest.to]];
+
+// Label the piece that begins the lap: it has the whole axis to its right,
+// where the tail piece had nothing but the edge. Clamped either way, since the
+// caption is about 200 units wide and text-anchor is middle.
+const labelSeg = wraps ? segments[1]! : segments[0];
+const HALF_LABEL = 105;
+const labelX = labelSeg
+  ? Math.max(PADX + HALF_LABEL,
+      Math.min(W - PADX - HALF_LABEL, (xOfDist(labelSeg[0]) + xOfDist(labelSeg[1])) / 2))
+  : 0;
+
 
 ---
 <figure class="profile" role="group">
@@ -45,11 +65,10 @@ const longest = straights[0];
        data-track-profile={JSON.stringify({ w: W, padx: PADX, length: p.length, cy: CY, amp: AMP })}
        role="img"
        aria-label={`Curvature profile of ${name}. ${cs.length} detected corners, ${lefts} left and ${cs.length - lefts} right, around a ${(p.length / 1000).toFixed(3)} kilometre lap.`}>
-    {longest && (
-      <rect class="straight" x={xOfDist(longest.from)} y={CY - AMP - 10}
-            width={Math.min(W - PADX, xOfDist(longest.to)) - xOfDist(longest.from)}
-            height={(AMP + 10) * 2} />
-    )}
+    {segments.map(([a, b]) => (
+      <rect class="straight" x={xOfDist(a)} y={CY - AMP - 10}
+            width={Math.max(0, xOfDist(b) - xOfDist(a))} height={(AMP + 10) * 2} />
+    ))}
 
     <rect class="hover-band" x="0" y={CY - AMP - 6} width="0" height={(AMP + 6) * 2} />
     <line class="axis" x1={PADX} y1={CY} x2={W - PADX} y2={CY} />
@@ -63,8 +82,7 @@ const longest = straights[0];
 
 
     {longest && (
-      <text class="ann" x={(xOfDist(longest.from) + Math.min(W - PADX, xOfDist(longest.to))) / 2}
-            y={14} text-anchor="middle">
+      <text class="ann" x={labelX} y={14} text-anchor="middle">
         longest straight · {Math.round(longest.len)} m
       </text>
     )}

@@ -118,6 +118,34 @@ def find_corners(kappa: list[float], step: float) -> list[dict]:
     return corners
 
 
+def corners_from_official(official, kappa, step, length):
+    """Spans around published corner positions, grown while the track still curves."""
+    n = len(kappa)
+    SPAN_RADIUS = 450.0          # m — generous: the apex is known, only the extent is not
+    lim = 1.0 / SPAN_RADIUS
+    out = []
+    for c in sorted(official, key=lambda c: c["distance"]):
+        apex = int(round((c["distance"] % length) / step)) % n
+        # Nudge to the local curvature peak; published positions sit near, not
+        # exactly on, the sharpest point of a recorded lap.
+        win = 6
+        apex = max(range(apex - win, apex + win + 1), key=lambda i: abs(kappa[i % n])) % n
+        lo = hi = apex
+        while abs(kappa[(lo - 1) % n]) > lim and (hi - lo) * step < 600:
+            lo -= 1
+        while abs(kappa[(hi + 1) % n]) > lim and (hi - lo) * step < 600:
+            hi += 1
+        k = kappa[apex]
+        out.append({
+            "entry": round((lo * step) % length, 1), "apex": round((apex * step) % length, 1),
+            "exit": round((hi * step) % length, 1),
+            "radius": round(1.0 / abs(k), 1) if k else None,
+            "dir": "L" if k > 0 else "R", "arc": round((hi - lo + 1) * step, 1),
+            "n": c["number"], "official": True,
+        })
+    return out
+
+
 circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
 lines = load_centrelines()
 
@@ -148,11 +176,22 @@ for cid, v in sorted(lines.items()):
     # proxy for "is this plausibly the start/finish", and no longer needed.
     START_STRAIGHT_RADIUS = 400.0
     start_k = max(abs(dk[i % len(dk)]) for i in range(-2, 3))
-    start_known = (v.get("startSource") == "osm"
+    # The feed defines the line and OSM records it; neither needs the curvature
+    # proxy, which exists only to sanity-check an inferred trace start.
+    start_known = (v.get("startSource") in ("feed", "osm")
                    or start_k < 1.0 / START_STRAIGHT_RADIUS)
 
-    corners = find_corners(kappa, STEP)
+    # Where the feed publishes official corner positions, anchor to them and
+    # measure only the extent: the apex is given, so the curvature threshold is
+    # used to grow a span outward from it rather than to guess that a corner is
+    # there at all. Detection remains the fallback for circuits the feed does
+    # not cover.
     length = len(rs) * STEP
+    official_corners = v.get("officialCorners") or []
+    if official_corners:
+        corners = corners_from_official(official_corners, kappa, STEP, length)
+    else:
+        corners = find_corners(kappa, STEP)
     official = circuits[cid].get("turns")
 
     stride = max(1, len(kappa) // DISPLAY_MAX)
@@ -161,6 +200,7 @@ for cid, v in sorted(lines.items()):
         # Display curvature, signed, in 1/km so the numbers stay small in JSON.
         "k": [round(k * 1000, 3) for k in dk[::stride]],
         "corners": corners, "detected": len(corners), "officialTurns": official,
+        "cornersAreOfficial": bool(official_corners),
         "startKnown": start_known, "startSource": v.get("startSource", "trace"),
     }
     report.append((cid, len(corners), official, length, circuits[cid]["length"], v["spacing"]))
@@ -176,6 +216,8 @@ for cid, d, o, gl, rl, sp in sorted(report, key=lambda r: -(r[1] or 0))[:10]:
     print(f"{cid:22} {d:8} {str(o or '-'):>8} {sp:7.1f}m{flag}")
 off = [c for c, v in profiles.items() if not v["startKnown"]]
 print(f"\n{len(profiles)} profiles · exact match {exact}/{len(report)} · within 2 {close}/{len(report)}")
+offc = [c for c, v in profiles.items() if v["cornersAreOfficial"]]
+print(f"corner positions official for {len(offc)}/{len(profiles)} circuits")
 osm = [c for c, v in profiles.items() if v["startSource"] == "osm"]
 print(f"start/finish from OSM for {len(osm)}: {', '.join(sorted(osm))}")
 print(f"start/finish unknown for {len(off)} — no chequer drawn: {', '.join(sorted(off)) or 'none'}")

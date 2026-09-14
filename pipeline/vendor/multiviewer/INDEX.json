@@ -1,0 +1,126 @@
+{
+ "austin": {
+  "key": 9,
+  "year": 2021
+ },
+ "bahrain": {
+  "key": 63,
+  "year": 2022
+ },
+ "baku": {
+  "key": 144,
+  "year": 2022
+ },
+ "catalunya": {
+  "key": 15,
+  "year": 2023
+ },
+ "hockenheimring": {
+  "key": 34,
+  "year": 2019
+ },
+ "hungaroring": {
+  "key": 4,
+  "year": 2021
+ },
+ "imola": {
+  "key": 6,
+  "year": 2022
+ },
+ "interlagos": {
+  "key": 14,
+  "year": 2023
+ },
+ "istanbul": {
+  "key": 59,
+  "year": 2021
+ },
+ "jeddah": {
+  "key": 149,
+  "year": 2022
+ },
+ "las-vegas": {
+  "key": 152,
+  "year": 2023
+ },
+ "lusail": {
+  "key": 150,
+  "year": 2023
+ },
+ "marina-bay": {
+  "key": 61,
+  "year": 2023
+ },
+ "melbourne": {
+  "key": 10,
+  "year": 2022
+ },
+ "mexico-city": {
+  "key": 65,
+  "year": 2021
+ },
+ "miami": {
+  "key": 151,
+  "year": 2022
+ },
+ "monaco": {
+  "key": 22,
+  "year": 2022
+ },
+ "montreal": {
+  "key": 23,
+  "year": 2022
+ },
+ "monza": {
+  "key": 39,
+  "year": 2021
+ },
+ "mugello": {
+  "key": 146,
+  "year": 2020
+ },
+ "nurburgring": {
+  "key": 72,
+  "year": 2020
+ },
+ "paul-ricard": {
+  "key": 28,
+  "year": 2022
+ },
+ "portimao": {
+  "key": 147,
+  "year": 2021
+ },
+ "shanghai": {
+  "key": 49,
+  "year": 2019
+ },
+ "silverstone": {
+  "key": 2,
+  "year": 2022
+ },
+ "sochi": {
+  "key": 79,
+  "year": 2021
+ },
+ "spa-francorchamps": {
+  "key": 7,
+  "year": 2021
+ },
+ "spielberg": {
+  "key": 19,
+  "year": 2022
+ },
+ "suzuka": {
+  "key": 46,
+  "year": 2025
+ },
+ "yas-marina": {
+  "key": 70,
+  "year": 2021
+ },
+ "zandvoort": {
+  "key": 55,
+  "year": 2021
+ }
+}

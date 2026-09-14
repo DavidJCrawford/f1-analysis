@@ -70,9 +70,10 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
   </svg>
 
   <p class="ui muted note">
-    <strong class="num">{cs.length}</strong> corners detected from the trace
+    <strong class="num">{cs.length}</strong> corners
+    {p.cornersAreOfficial ? ' from the official timing feed' : ' detected from the trace'}
     — {lefts} left, {cs.length - lefts} right
-    {p.officialTurns != null && (
+    {p.officialTurns != null && !p.cornersAreOfficial && (
       <> · official count <strong class="num">{p.officialTurns}</strong>
       {p.officialTurns !== cs.length && (
         <span class="disagree"> (differs by {Math.abs(p.officialTurns - cs.length)})</span>

@@ -51,13 +51,15 @@ const last = held[0];
           <TrackProfile profile={prof} name={c.name} />
           <TrackLink />
           <p class="ui muted measure" style="margin-top:1.2rem">
-            The red sections are where the track curves tighter than a 220&nbsp;m
-            radius, measured from the geometry. They are deliberately not numbered:
-            official turn numbers are a convention assigned by the circuit and the
-            FIA rather than a property of the shape — Monza's Variante Ascari is one
-            complex numbered as three turns — so no amount of measurement recovers
-            them. The official count is shown above for comparison. Real corner
-            numbering arrives with the timing feed, which covers 2018 onward.
+            {prof.cornersAreOfficial
+              ? <>The red sections are the circuit's official corners, positioned from
+                  the Formula 1 timing feed. Their extent — where each one begins and
+                  ends — is measured from the geometry, since the feed publishes a
+                  position for each corner but not its length.</>
+              : <>The red sections are where the track curves tighter than a 220&nbsp;m
+                  radius, measured from the geometry. The timing feed does not cover
+                  this circuit, so these are derived rather than official, and the
+                  published turn count is shown above for comparison.</>}
           </p>
         </section>
       )}
@@ -140,10 +142,18 @@ const last = held[0];
             Geometry from {o.source.startsWith('TUMFTM')
               ? <><a href="https://github.com/TUMFTM/racetrack-database">TUMFTM/racetrack-database</a>,
                   derived from <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> (ODbL)</>
-              : <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a>}
+              : o.source.startsWith('F1 timing')
+                ? <>the Formula 1 timing feed</>
+                : <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a>}
             · <span class="num">{o.spacing.toFixed(1)} m</span> between points
             · measures <span class="num">{(o.length / 1000).toFixed(3)} km</span> against
             a recorded <span class="num">{c.length?.toFixed(3)} km</span>.
+            {prof && (prof.startSource === 'feed'
+              ? <> Start/finish is taken from the timing feed.</>
+              : prof.startSource === 'osm'
+                ? <> Start/finish is taken from OpenStreetMap.</>
+                : <> Start/finish is inferred from where the trace begins and may be
+                    approximate.</>)}
           </p>
         )}
       </section>

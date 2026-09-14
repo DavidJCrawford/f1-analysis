@@ -81,6 +81,8 @@ export interface Profile {
   corners: Corner[]; detected: number; officialTurns: number | null;
   /** False when start/finish cannot be located, so no chequer is drawn. */
   startKnown: boolean;
-  /** 'osm' when taken from a tagged start/finish line, 'trace' when inferred. */
-  startSource: 'osm' | 'trace';
+  /** Where start/finish came from: the timing feed, an OSM tag, or inferred. */
+  startSource: 'feed' | 'osm' | 'trace';
+  /** True when corner positions come from the official feed rather than curvature. */
+  cornersAreOfficial: boolean;
 }

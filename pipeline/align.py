@@ -110,81 +110,86 @@ def arc_fraction(pts, target):
     return best[1], math.sqrt(best[0])
 
 
-tum, bac_raw = _tumftm(apply_alignment=False), _bacinger()
-starts = _start_finish()
-circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
+def main() -> None:
+    tum, bac_raw = _tumftm(apply_alignment=False), _bacinger()
+    starts = _start_finish()
+    circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
 
-# bacinger keyed by circuit, choosing the candidate whose length fits best
-bac = {}
-for f in bac_raw.values():
-    L = sum(math.dist(f["pts"][i], f["pts"][(i + 1) % len(f["pts"])]) for i in range(len(f["pts"])))
-    for cid in f["candidates"]:
-        rec = circuits.get(cid, {}).get("length")
-        if not rec:
+    # bacinger keyed by circuit, choosing the candidate whose length fits best
+    bac = {}
+    for f in bac_raw.values():
+        L = sum(math.dist(f["pts"][i], f["pts"][(i + 1) % len(f["pts"])]) for i in range(len(f["pts"])))
+        for cid in f["candidates"]:
+            rec = circuits.get(cid, {}).get("length")
+            if not rec:
+                continue
+            e = abs(L - rec * 1000) / (rec * 1000)
+            if e < 0.03 and (cid not in bac or e < bac[cid][1]):
+                bac[cid] = (f, e)
+
+    out, rows = {}, []
+    for cid in sorted(set(tum) & set(bac)):
+        if cid not in starts:
             continue
-        e = abs(L - rec * 1000) / (rec * 1000)
-        if e < 0.03 and (cid not in bac or e < bac[cid][1]):
-            bac[cid] = (f, e)
+        tpts = tum[cid]["pts"]
+        feat = bac[cid][0]
+        bpts = feat["pts"]
 
-out, rows = {}, []
-for cid in sorted(set(tum) & set(bac)):
-    if cid not in starts:
-        continue
-    tpts = tum[cid]["pts"]
-    feat = bac[cid][0]
-    bpts = feat["pts"]
+        # bacinger's frame: metres east/north about the trace centroid.
+        co_lat = feat.get("lat0"); co_lon = feat.get("lon0")
+        if co_lat is None:
+            continue
 
-    # bacinger's frame: metres east/north about the trace centroid.
-    co_lat = feat.get("lat0"); co_lon = feat.get("lon0")
-    if co_lat is None:
-        continue
+        a = resample(bpts, COARSE); b = resample(tpts, COARSE)
+        sa, sb = zscore(curvature(a)), zscore(curvature(b))
+        s0, flip0, _ = best_shift(sa, sb)
 
-    a = resample(bpts, COARSE); b = resample(tpts, COARSE)
-    sa, sb = zscore(curvature(a)), zscore(curvature(b))
-    s0, flip0, _ = best_shift(sa, sb)
+        af = resample(bpts, FINE); bf = resample(tpts, FINE)
+        saf, sbf = zscore(curvature(af)), zscore(curvature(bf))
+        centre = int(round(s0 * FINE / COARSE))
+        win = [(centre + d) % FINE for d in range(-12, 13)]
+        s1, flip1, _ = best_shift(saf, sbf, win)
+        if flip1 != flip0:
+            flip1 = flip0
 
-    af = resample(bpts, FINE); bf = resample(tpts, FINE)
-    saf, sbf = zscore(curvature(af)), zscore(curvature(bf))
-    centre = int(round(s0 * FINE / COARSE))
-    win = [(centre + d) % FINE for d in range(-12, 13)]
-    s1, flip1, _ = best_shift(saf, sbf, win)
-    if flip1 != flip0:
-        flip1 = flip0
+        bb = list(reversed(bf)) if flip1 else bf
+        corr = [bb[(i + s1) % FINE] for i in range(FINE)]
+        theta, rms, ca, cb = kabsch(af, corr)
 
-    bb = list(reversed(bf)) if flip1 else bf
-    corr = [bb[(i + s1) % FINE] for i in range(FINE)]
-    theta, rms, ca, cb = kabsch(af, corr)
+        sf = starts[cid]
+        kx, ky = scales(co_lat)
+        tgt = ((sf["lon"] - co_lon) * kx, (sf["lat"] - co_lat) * ky)
+        b_frac, snap_err = arc_fraction(bpts, tgt)
 
-    sf = starts[cid]
-    kx, ky = scales(co_lat)
-    tgt = ((sf["lon"] - co_lon) * kx, (sf["lat"] - co_lat) * ky)
-    b_frac, snap_err = arc_fraction(bpts, tgt)
+        # af[i] corresponds to bb[(i + s1) % FINE]. Carry the fraction across in
+        # that direction, then undo the reversal to land back in TUMFTM's own order.
+        j = (b_frac + s1 / FINE) % 1.0
+        t_frac = (1.0 - j) % 1.0 if flip1 else j
 
-    # af[i] corresponds to bb[(i + s1) % FINE]. Carry the fraction across in
-    # that direction, then undo the reversal to land back in TUMFTM's own order.
-    j = (b_frac + s1 / FINE) % 1.0
-    t_frac = (1.0 - j) % 1.0 if flip1 else j
+        # End-to-end check: take the point this lands on in TUMFTM, push it through
+        # the solved transform, and measure how far it is from the OSM node. This
+        # tests the correspondence, the rotation and the fraction mapping together —
+        # the residual RMS alone would not catch a sign error in the mapping.
+        tp = resample(tpts, FINE)[int(t_frac * FINE) % FINE]
+        cos, sin = math.cos(theta), math.sin(theta)
+        vx, vy = tp[0] - cb[0], tp[1] - cb[1]
+        mapped = (ca[0] + vx * cos - vy * sin, ca[1] + vx * sin + vy * cos)
+        check = math.dist(mapped, tgt)
 
-    # End-to-end check: take the point this lands on in TUMFTM, push it through
-    # the solved transform, and measure how far it is from the OSM node. This
-    # tests the correspondence, the rotation and the fraction mapping together —
-    # the residual RMS alone would not catch a sign error in the mapping.
-    tp = resample(tpts, FINE)[int(t_frac * FINE) % FINE]
-    cos, sin = math.cos(theta), math.sin(theta)
-    vx, vy = tp[0] - cb[0], tp[1] - cb[1]
-    mapped = (ca[0] + vx * cos - vy * sin, ca[1] + vx * sin + vy * cos)
-    check = math.dist(mapped, tgt)
+        ok = rms <= MAX_RMS and check <= 120.0
+        rows.append((cid, rms, flip1, check, ok))
+        if ok:
+            out[cid] = {"fraction": round(t_frac, 6), "rmsError": round(rms, 1),
+                        "reversed": flip1, "checkError": round(check, 1),
+                        "rotationDeg": round(math.degrees(theta) % 360, 2),
+                        "osmNodeId": sf.get("osmNodeId")}
 
-    ok = rms <= MAX_RMS and check <= 120.0
-    rows.append((cid, rms, flip1, check, ok))
-    if ok:
-        out[cid] = {"fraction": round(t_frac, 6), "rmsError": round(rms, 1),
-                    "reversed": flip1, "checkError": round(check, 1),
-                    "rotationDeg": round(math.degrees(theta) % 360, 2),
-                    "osmNodeId": sf.get("osmNodeId")}
+    (VENDOR / "tumftm-start-finish.json").write_text(json.dumps(out, indent=1, sort_keys=True))
+    print(f"{'circuit':22} {'shape fit':>10} {'reversed':>9} {'start/finish check':>19}  verdict")
+    for cid, rms, flip, check, ok in rows:
+        print(f"{cid:22} {rms:9.1f}m {str(flip):>9} {check:18.1f}m  {'accepted' if ok else 'REJECTED'}")
+    print(f"\n{len(out)}/{len(rows)} alignments accepted (RMS <= {MAX_RMS:.0f} m)")
 
-(VENDOR / "tumftm-start-finish.json").write_text(json.dumps(out, indent=1, sort_keys=True))
-print(f"{'circuit':22} {'shape fit':>10} {'reversed':>9} {'start/finish check':>19}  verdict")
-for cid, rms, flip, check, ok in rows:
-    print(f"{cid:22} {rms:9.1f}m {str(flip):>9} {check:18.1f}m  {'accepted' if ok else 'REJECTED'}")
-print(f"\n{len(out)}/{len(rows)} alignments accepted (RMS <= {MAX_RMS:.0f} m)")
+
+if __name__ == "__main__":
+    main()

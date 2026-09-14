@@ -56,6 +56,44 @@ def _closed_length(pts: list[tuple[float, float]]) -> float:
     return sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)) + math.dist(pts[-1], pts[0])
 
 
+def _multiviewer() -> dict[str, dict]:
+    """Official circuit geometry from the F1 timing feed, via MultiViewer.
+
+    Two properties make this authoritative where it exists. The coordinates are
+    already metric and north-up — solving the rigid transform against the
+    geo-referenced traces returns a rotation of 0 degrees at every circuit, with
+    4-9 m residuals — so no alignment step is needed. And index 0 of the
+    polyline IS the start/finish line: every corner's position along the
+    polyline matches its published distance from the line to 0.0 m, across all
+    corners, with zero spread. Start/finish is definitional here rather than
+    inferred.
+    """
+    d = VENDOR / "multiviewer"
+    if not d.exists():
+        return {}
+    out = {}
+    for f in sorted(d.glob("*.json")):
+        if f.name == "INDEX.json":
+            continue
+        mv = json.loads(f.read_text())
+        xs, ys = mv.get("x") or [], mv.get("y") or []
+        if len(xs) < 40:
+            continue
+        out[f.stem] = {
+            "pts": [(x / 10.0, y / 10.0) for x, y in zip(xs, ys)],   # decimetres -> m
+            "width": None,
+            "source": "F1 timing feed via MultiViewer",
+            "sourceId": f"{mv.get('circuitKey')}/{mv.get('year')}",
+            "startSource": "feed",
+            "officialCorners": [
+                {"number": c["number"], "letter": c.get("letter"),
+                 "distance": round(c["length"] / 10.0, 1), "angle": c.get("angle")}
+                for c in (mv.get("corners") or [])
+            ],
+        }
+    return out
+
+
 def _tumftm(apply_alignment: bool = True) -> dict[str, dict]:
     """Raw TUMFTM centrelines, re-origined to start/finish where align.py has
     solved it. align.py itself must pass apply_alignment=False: solving against
@@ -186,7 +224,7 @@ def _bacinger() -> dict[str, dict]:
 def load_centrelines(verbose: bool = False) -> dict[str, dict]:
     """Best available metric centreline per circuit id, length-validated."""
     circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
-    tum, bac = _tumftm(), _bacinger()
+    mvw, tum, bac = _multiviewer(), _tumftm(), _bacinger()
     result, report = {}, []
 
     def err(length: float, cid: str) -> float | None:
@@ -210,8 +248,8 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
         if prev is None or e < prev["lengthError"]:
             bac_by_cid[cid] = {**feat, "length": length, "lengthError": e}
 
-    for cid in sorted(set(tum) | set(bac_by_cid)):
-        for cand in (tum.get(cid), bac_by_cid.get(cid)):
+    for cid in sorted(set(mvw) | set(tum) | set(bac_by_cid)):
+        for cand in (mvw.get(cid), tum.get(cid), bac_by_cid.get(cid)):
             if not cand:
                 continue
             length = cand.get("length") or _closed_length(cand["pts"])
@@ -230,9 +268,12 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
         used = [r for r in report if r[2] == "used"]
         rej = [r for r in report if r[2] == "REJECTED"]
         tumn = sum(1 for cid, v in result.items() if v["source"].startswith("TUMFTM"))
+        feedn = sum(1 for v in result.values() if v["source"].startswith("F1 timing"))
         osmn = sum(1 for v in result.values() if v.get("startSource") == "osm")
-        print(f"{len(result)} centrelines: {tumn} TUMFTM, {len(result)-tumn} bacinger"
-              f" · {osmn} re-origined to an OSM start/finish line")
+        bacn = len(result) - feedn - tumn
+        print(f"{len(result)} centrelines: {feedn} timing feed, {tumn} TUMFTM, {bacn} bacinger")
+        print(f"start/finish: {feedn} from the feed (exact), {osmn} from OSM, "
+              f"{len(result)-feedn-osmn} inferred from the trace")
         mean_sp = sum(v["spacing"] for v in result.values()) / len(result)
         print(f"mean point spacing {mean_sp:.1f} m  "
               f"(TUMFTM circuits ~{sum(v['spacing'] for v in result.values() if v['source'].startswith('TUMFTM'))/max(tumn,1):.1f} m)")

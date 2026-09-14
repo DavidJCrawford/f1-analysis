@@ -51,7 +51,11 @@ const arcs = marked ? corners.map((c) =>
 // such problem: the frame is a larger polygon beneath the ground, and each
 // square is its own quad.
 const CHEQUER = showStart && height >= 240;
-const CELL = 3.8, COLS = 9;
+// A rotated edge cannot align to the pixel grid, so sharpness here comes from
+// feature size rather than snapping: at 3.8px a cell was mostly antialiased
+// edge. Larger cells, fewer of them, and a frame thick enough to cover a whole
+// pixel instead of sitting as a grey seam between two blurred boundaries.
+const CELL = 5.6, COLS = 7;
 const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
 const sN = startFrame.n;
 const sT: [number, number] = [-sN[1], sN[0]];
@@ -78,9 +82,7 @@ if (CHEQUER) {
 // The dark squares are painted rather than left as holes: a solid black ground
 // under the white dashes, so the chequer reads the same whatever it sits on.
 // A hairline frame, offset by a little padding, lifts it off the tarmac.
-// A stroke showed only half its width outside the edge, so as a fill this
-// needs to be roughly halved to look the same.
-const FRAME_PAD = 0.8;   // px
+const FRAME_PAD = 1.4;   // px — a solid pixel, not a sub-pixel seam
 const quad = (alongHalf: number, acrossHalf: number) =>
   [[1, 1], [1, -1], [-1, -1], [-1, 1]]
     .map(([a, b]) => [

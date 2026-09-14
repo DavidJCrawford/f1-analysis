@@ -1,12 +1,12 @@
 ---
 import Base from '@layouts/Base.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
-import { circuits, outline, racesAtCircuit, seasons } from '@lib/data';
+import { circuits, outline, seasons } from '@lib/data';
 import { u } from '@lib/url';
 
 const all = circuits()
-  .map((c) => ({ c, o: outline(c.id), races: racesAtCircuit(c.id).length }))
-  .sort((a, b) => b.races - a.races || a.c.name.localeCompare(b.c.name));
+  .map((c) => ({ c, o: outline(c.id), held: c.racesHeld ?? 0 }))
+  .sort((a, b) => b.held - a.held || a.c.name.localeCompare(b.c.name));
 const withOutline = all.filter((x) => x.o);
 const without = all.filter((x) => !x.o);
 const year = seasons()[0]!.year;
@@ -21,7 +21,7 @@ const year = seasons()[0]!.year;
     </p>
 
     <div class="gallery" style="margin-top:3rem">
-      {withOutline.map(({ c, o, races }) => (
+      {withOutline.map(({ c, o }) => (
         <a class="cell plain" href={u(`/circuits/${c.id}/`)}>
           <CircuitOutline outline={o!} name={c.name} height={110} />
           <span class="title">{c.name}</span>
@@ -39,10 +39,10 @@ const year = seasons()[0]!.year;
           be trusted — a wrong outline is worse than none.
         </p>
         <ul class="plainlist" style="margin-top:1.4rem">
-          {without.map(({ c, races }) => (
+          {without.map(({ c }) => (
             <li>
               <a href={u(`/circuits/${c.id}/`)}>{c.name}</a>
-              <span class="ui muted"> — {c.place}, {c.country} · <span class="num">{races}</span></span>
+              <span class="ui muted"> — {c.place}, {c.country}</span>
             </li>
           ))}
         </ul>

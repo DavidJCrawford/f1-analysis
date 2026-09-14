@@ -9,7 +9,7 @@ import TrackLink from '@components/TrackLink.astro';
 import { circuits, circuit, outline, profile, racesAtCircuit, season,
          currentSeasonYear, seasonCircuits } from '@lib/data';
 import { u } from '@lib/url';
-import { km, shortDate, int } from '@lib/format';
+import { km, shortDate, int, sentence, circuitType } from '@lib/format';
 
 export const getStaticPaths = (() =>
   circuits().map((c) => ({ params: { id: c.id } }))) satisfies GetStaticPaths;
@@ -26,8 +26,6 @@ for (const r of held) {
   if (w) winners.set(w.driver, (winners.get(w.driver) ?? 0) + 1);
 }
 const topWinners = [...winners.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-const first = held.at(-1);
-const last = held[0];
 ---
 <Base title={c.name} description={`${c.fullName} — ${c.place}, ${c.country}.`}>
   <div class="wrap section" data-pagefind-body>
@@ -80,10 +78,9 @@ const last = held[0];
     <div class="stats">
       <Stat label="Lap length" value={km(c.length)} />
       <Stat label="Turns" value={c.turns ?? '—'} />
-      <Stat label="Direction" value={c.direction} />
-      <Stat label="Type" value={c.type} />
-      <Stat label="Races held" value={int(held.length)} />
-      <Stat label="Seasons" value={first && last ? `${first.year}–${last.year}` : '—'} />
+      <Stat label="Direction" value={sentence(c.direction)} />
+      <Stat label="Type" value={circuitType(c.type)} />
+      <Stat label="Grands Prix" value={int(c.racesHeld)} />
     </div>
     <hr class="rule" />
 
@@ -169,7 +166,10 @@ const last = held[0];
   .viewport :global(svg) { color: var(--ks-instrument-text); }
   .profile-block { margin: 3.4rem 0; }
   .scatter-block { margin: 3.4rem 0; max-width: 720px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: clamp(18px, 3vw, 32px); padding-block: 26px;
+  }
   .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }
   .absence { border-left: 1px solid var(--ks-edge); padding-left: 20px; margin: 2.6rem 0 3rem; }
 </style>

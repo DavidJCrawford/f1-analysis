@@ -71,7 +71,7 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
 
   <p class="ui muted note">
     <strong class="num">{cs.length}</strong> corners
-    {p.cornersAreOfficial ? ' from the official timing feed' : ' detected from the trace'}
+    {p.cornersAreOfficial ? ' from the official timing feed' : ' detected from the trace'}{' '}
     — {lefts} left, {cs.length - lefts} right
     {p.officialTurns != null && !p.cornersAreOfficial && (
       <> · official count <strong class="num">{p.officialTurns}</strong>

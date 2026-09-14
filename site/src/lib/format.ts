@@ -22,3 +22,20 @@ export const pts = (v: number | null): string =>
 /** An em dash, not a zero. A missing value is not the number nought. */
 export const dash = <T>(v: T | null | undefined, f: (x: T) => string): string =>
   v == null ? '—' : f(v);
+
+/** F1DB ships these as raw enums — ANTI_CLOCKWISE, RACE — which are storage
+ *  values, not display values. */
+export const sentence = (v: string | null | undefined): string =>
+  v ? v.toLowerCase().replace(/_/g, '-').replace(/^./, (c) => c.toUpperCase()) : '—';
+
+/** "Race" alone reads oddly beside "Street" and "Road"; the conventional term
+ *  for a purpose-built circuit is permanent. */
+const CIRCUIT_TYPE: Record<string, string> = {
+  RACE: 'Permanent', STREET: 'Street', ROAD: 'Road',
+};
+export const circuitType = (v: string | null | undefined): string =>
+  (v && CIRCUIT_TYPE[v]) ?? sentence(v);
+
+/** A circuit that has held one season should not read "2026–2026". */
+export const yearSpan = (a: number | null, b: number | null): string =>
+  a == null || b == null ? '—' : a === b ? String(a) : `${a}–${b}`;

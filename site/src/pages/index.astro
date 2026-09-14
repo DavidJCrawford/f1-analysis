@@ -20,6 +20,9 @@ const gallery = HERO
 const next = s.races.find((r) => r.date > m.dataAsOf);
 const last = [...s.races].reverse().find((r) => r.date <= m.dataAsOf);
 const leader = s.driverStandings[0];
+const lastWinner = last
+  ? (s.results[String(last.round)] ?? []).find((x) => x.posNum === 1)
+  : undefined;
 ---
 <Base title="F1 Analysis">
   <div class="wrap section">
@@ -45,7 +48,7 @@ const leader = s.driverStandings[0];
   </div>
 
   <section class="wrap section">
-    <div class="two-up">
+    <div class="three-up">
       <div>
         <h2 class="eyebrow">Championship</h2>
         {leader && (
@@ -55,13 +58,31 @@ const leader = s.driverStandings[0];
           </p>
         )}
       </div>
+
       <div>
-        <h2 class="eyebrow">{next ? 'Next round' : 'Latest round'}</h2>
-        {(next ?? last) && (
+        <h2 class="eyebrow">Last round</h2>
+        {last ? (
           <p class="lead" style="margin-top:.8em">
-            <a href={u(`/races/${year}/${(next ?? last)!.round}/`)}>{(next ?? last)!.shortName}</a>
-            <span class="muted num"> · {shortDate((next ?? last)!.date)}</span>
+            <a href={u(`/races/${year}/${last.round}/`)}>{last.shortName}</a>
+            <span class="muted num"> · {shortDate(last.date)}</span>
+            {lastWinner && (
+              <><br /><span class="muted">Won by {lastWinner.driver}</span></>
+            )}
           </p>
+        ) : (
+          <p class="lead muted" style="margin-top:.8em">The season has not started.</p>
+        )}
+      </div>
+
+      <div>
+        <h2 class="eyebrow">Next round</h2>
+        {next ? (
+          <p class="lead" style="margin-top:.8em">
+            <a href={u(`/races/${year}/${next.round}/`)}>{next.shortName}</a>
+            <span class="muted num"> · {shortDate(next.date)}</span>
+          </p>
+        ) : (
+          <p class="lead muted" style="margin-top:.8em">The season is complete.</p>
         )}
       </div>
     </div>
@@ -92,7 +113,7 @@ const leader = s.driverStandings[0];
 
 <style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px, 3vw, 40px); padding-block: 26px; }
-  .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(24px, 4vw, 56px); }
+  .three-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(24px, 4vw, 48px); }
   .circuit-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(18px, 3vw, 36px); margin-top: 1.4rem; }
   @media (width >= 560px) { .circuit-row { grid-template-columns: repeat(3, 1fr); } }
   @media (width >= 1000px) { .circuit-row { grid-template-columns: repeat(6, 1fr); } }

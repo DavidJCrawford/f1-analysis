@@ -1,0 +1,34 @@
+---
+import Base from '@layouts/Base.astro';
+import { seasons, meta } from '@lib/data';
+import { u } from '@lib/url';
+
+const all = [...seasons()].sort((a, b) => b.year - a.year);
+const m = meta();
+---
+<Base title="Races" description="Every Formula 1 World Championship race since 1950.">
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Index</p>
+    <h1 class="headline" style="margin-top:.2em">Races</h1>
+    <p class="lead" style="margin-top:1em">
+      {m.counts.races.toLocaleString('en-GB')} World Championship races. Pick a season.
+    </p>
+    <div class="years" style="margin-top:2.4rem">
+      {all.map((s) => (
+        <a class="year plain num" href={u(`/seasons/${s.year}/`)}>
+          {s.year}<span class="ui muted"> {s.races}</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</Base>
+
+<style>
+  .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 2px 12px; }
+  .year {
+    padding: 8px 10px 8px 0; color: var(--ks-ink);
+    border-bottom: 1px solid var(--ks-rule);
+    transition: color var(--ks-quick) var(--ks-ease), border-color var(--ks-quick) var(--ks-ease);
+  }
+  .year:hover { border-bottom-color: var(--ks-kinpaku); }
+</style>

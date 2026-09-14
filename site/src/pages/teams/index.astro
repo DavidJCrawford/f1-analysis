@@ -1,0 +1,48 @@
+---
+import Base from '@layouts/Base.astro';
+import { constructors } from '@lib/data';
+import { u } from '@lib/url';
+import { int } from '@lib/format';
+
+const all = constructors();
+const active = all.filter((c) => (c.entries ?? 0) > 0);
+---
+<Base title="Teams" description="Every constructor to have entered a Formula 1 World Championship race.">
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Index</p>
+    <h1 class="headline" style="margin-top:.2em">Teams</h1>
+    <p class="lead" style="margin-top:1em">
+      {all.length} constructors, ordered by race entries. Lineage matters here: a team that
+      was renamed keeps one page and one URL.
+    </p>
+
+    <div class="table-scroll" style="margin-top:2.6rem">
+      <table>
+        <thead>
+          <tr>
+            <th>Constructor</th><th>Country</th>
+            <th class="n">Entries</th><th class="n">Wins</th><th class="n">Podiums</th>
+            <th class="n">Poles</th><th class="n">Titles</th>
+          </tr>
+        </thead>
+        <tbody>
+          {active.map((c) => (
+            <tr>
+              <td><a href={u(`/teams/${c.id}/`)}>{c.name}</a></td>
+              <td class="muted ui">{c.country}</td>
+              <td class="n">{int(c.entries)}</td>
+              <td class="n">{int(c.wins)}</td>
+              <td class="n">{int(c.podiums)}</td>
+              <td class="n">{int(c.poles)}</td>
+              <td class="n">{c.titles ? <strong class="gold">{c.titles}</strong> : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .gold { color: var(--ks-kinpaku-deep); font-weight: 600; }
+</style>

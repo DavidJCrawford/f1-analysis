@@ -1,0 +1,50 @@
+---
+import Base from '@layouts/Base.astro';
+import { seasons, TIER_LABEL } from '@lib/data';
+import { u } from '@lib/url';
+
+const all = [...seasons()].sort((a, b) => b.year - a.year);
+const decades = new Map<number, typeof all>();
+for (const s of all) {
+  const d = Math.floor(s.year / 10) * 10;
+  (decades.get(d) ?? decades.set(d, []).get(d)!).push(s);
+}
+---
+<Base title="Seasons" description="Every Formula 1 season from 1950.">
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Index</p>
+    <h1 class="headline" style="margin-top:.2em">Seasons</h1>
+    <p class="lead" style="margin-top:1em">
+      {all.length} seasons, {all[0]!.year} back to {all.at(-1)!.year}.
+    </p>
+
+    {[...decades.entries()].sort((a, b) => b[0] - a[0]).map(([decade, rows]) => (
+      <section style="margin-top:3rem">
+        <h2 class="eyebrow">{decade}s</h2>
+        <div class="table-scroll" style="margin-top:.8rem">
+          <table>
+            <thead>
+              <tr>
+                <th class="n">Year</th><th class="n">Races</th>
+                <th>Drivers' champion</th><th>Constructors' champion</th><th>Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s) => (
+                <tr>
+                  <td class="n"><a href={u(`/seasons/${s.year}/`)}>{s.year}</a></td>
+                  <td class="n">{s.races}</td>
+                  <td>{s.championDriver ?? '—'}</td>
+                  <td>{s.championConstructor
+                    ? <a href={u(`/teams/${s.championConstructorId}/`)}>{s.championConstructor}</a>
+                    : '—'}</td>
+                  <td class="muted ui">{TIER_LABEL[s.tier]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    ))}
+  </div>
+</Base>

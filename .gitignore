@@ -61,3 +61,6 @@ Thumbs.db
 !.vscode/extensions.json
 *.swp
 *~
+
+# ─── Toolchain caches ────────────────────────────────────────────────────────
+.cache/

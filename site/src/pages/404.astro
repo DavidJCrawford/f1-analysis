@@ -1,0 +1,17 @@
+---
+import Base from '@layouts/Base.astro';
+import { u } from '@lib/url';
+---
+<Base title="Not found">
+  <div class="wrap section">
+    <p class="eyebrow">404</p>
+    <h1 class="headline" style="margin-top:.3em">No such page</h1>
+    <p class="lead" style="margin-top:1em">
+      URLs here are meant to be permanent, so this is either a typo or a mistake on our part.
+    </p>
+    <p style="margin-top:1.4rem">
+      <a href={u('/seasons/')}>Seasons</a> · <a href={u('/circuits/')}>Circuits</a> ·
+      <a href={u('/teams/')}>Teams</a>
+    </p>
+  </div>
+</Base>

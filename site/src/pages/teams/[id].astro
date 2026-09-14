@@ -1,0 +1,75 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '@layouts/Base.astro';
+import Stat from '@components/Stat.astro';
+import { constructors, constructorById, constructorSeasons } from '@lib/data';
+import { u } from '@lib/url';
+import { int, pts } from '@lib/format';
+
+export const getStaticPaths = (() =>
+  constructors().map((c) => ({ params: { id: c.id } }))) satisfies GetStaticPaths;
+
+const c = constructorById(Astro.params.id!)!;
+const years = constructorSeasons(c.id);
+const titles = years.filter((y) => y.champion);
+const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
+---
+<Base title={c.name} description={`${c.fullName} — Formula 1 constructor record.`}>
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Constructor · {c.country}</p>
+    <h1 class="headline" style="margin-top:.3em">{c.name}</h1>
+    <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
+
+    <hr class="rule" style="margin-top:2.4rem" />
+    <div class="stats">
+      <Stat label="Entries" value={int(c.entries)} />
+      <Stat label="Starts" value={int(c.starts)} />
+      <Stat label="Wins" value={int(c.wins)} />
+      <Stat label="Podiums" value={int(c.podiums)} />
+      <Stat label="Poles" value={int(c.poles)} />
+      <Stat label="Titles" value={int(c.titles)} />
+      <Stat label="Seasons" value={span} />
+    </div>
+    <hr class="rule" />
+
+    {titles.length > 0 && (
+      <p class="lead" style="margin-top:1.6rem">
+        Constructors' champion in {titles.map((t, i) => (
+          <>{i > 0 && ', '}<a class="num" href={u(`/seasons/${t.year}/`)}>{t.year}</a></>
+        ))}.
+      </p>
+    )}
+
+    <section style="margin-top:3.4rem">
+      <h2 class="title-lg">Championship record</h2>
+      {years.length ? (
+        <div class="table-scroll" style="margin-top:1rem">
+          <table>
+            <thead><tr><th class="n">Season</th><th class="n">Position</th><th class="n">Points</th></tr></thead>
+            <tbody>
+              {years.map((y) => (
+                <tr class={y.champion ? 'champ' : undefined}>
+                  <td class="n"><a href={u(`/seasons/${y.year}/`)}>{y.year}</a></td>
+                  <td class="n">{y.pos}{y.champion && <span class="crown" aria-label="Champion"> ●</span>}</td>
+                  <td class="n">{pts(y.points)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p class="ui muted measure" style="margin-top:1rem">
+          No constructors' championship classification exists for this entrant. The
+          Constructors' Championship was first contested in 1958, and before 1979 only a
+          constructor's best-placed car scored.
+        </p>
+      )}
+    </section>
+  </div>
+</Base>
+
+<style>
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
+  .crown { color: var(--ks-kinpaku); font-size: .7em; }
+  tr.champ td { color: var(--ks-ink); }
+</style>

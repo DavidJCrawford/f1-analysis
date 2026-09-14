@@ -1,0 +1,127 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '@layouts/Base.astro';
+import Stat from '@components/Stat.astro';
+import CircuitOutline from '@components/CircuitOutline.astro';
+import { races, season, circuit, outline, TIER_LABEL, TIER_NOTE } from '@lib/data';
+import { u } from '@lib/url';
+import { longDate, km, pts } from '@lib/format';
+
+export const getStaticPaths = (() =>
+  races().map((r) => ({ params: { year: String(r.year), round: String(r.round) } }))) satisfies GetStaticPaths;
+
+const year = Number(Astro.params.year);
+const round = Number(Astro.params.round);
+const s = season(year);
+const race = s.races.find((r) => r.round === round)!;
+const results = s.results[String(round)] ?? [];
+const c = circuit(race.circuitId);
+const o = outline(race.circuitId);
+const podium = results.filter((r) => r.posNum != null && r.posNum <= 3);
+const finished = results.filter((r) => r.posNum != null).length;
+---
+<Base title={`${race.shortName} ${year}`} description={race.officialName}>
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">
+      Round {round} of {s.races.length} · {TIER_LABEL[race.tier]} tier ·
+      <a href={u(`/seasons/${year}/`)}>{year} season</a>
+    </p>
+    <h1 class="headline" style="margin-top:.3em">{race.shortName}</h1>
+    <p class="lead muted" style="margin-top:.7em">{race.officialName}</p>
+    <p class="num muted" style="margin-top:.3em">{longDate(race.date)}</p>
+
+    <hr class="rule" style="margin-top:2.4rem" />
+    <div class="head">
+      <div class="stats">
+        <Stat label="Circuit" value={c?.name ?? race.circuitId} />
+        <Stat label="Laps" value={race.laps ?? '—'} />
+        <Stat label="Distance" value={race.distance ? `${race.distance.toFixed(1)} km` : '—'} />
+        <Stat label="Lap length" value={km(race.courseLength)} />
+        <Stat label="Classified" value={finished || '—'} />
+      </div>
+      {o && c && (
+        <a class="outline-link plain" href={u(`/circuits/${c.id}/`)} aria-label={`Circuit page for ${c.name}`}>
+          <CircuitOutline outline={o} name={c.name} height={132} />
+        </a>
+      )}
+    </div>
+    <hr class="rule" />
+
+    {results.length === 0 ? (
+      <div class="absence" style="margin-top:2rem">
+        <p class="title">Not yet held</p>
+        <p class="ui muted measure" style="margin-top:.5rem">
+          This race is on the {year} calendar but has not taken place. It will be published
+          in a provisional state once the chequered flag falls, with derived figures withheld
+          until the classification is final.
+        </p>
+      </div>
+    ) : (
+      <>
+        {podium.length === 3 && (
+          <section style="margin-top:2.6rem">
+            <h2 class="eyebrow">Podium</h2>
+            <ol class="podium">
+              {podium.map((p) => (
+                <li>
+                  <span class="pos num">{p.posNum}</span>
+                  <span class="who">
+                    <span class="title">{p.driver}</span>
+                    <span class="ui muted"><a href={u(`/teams/${p.constructorId}/`)}>{p.constructor}</a></span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        <section style="margin-top:3rem">
+          <h2 class="title-lg">Classification</h2>
+          <div class="table-scroll" style="margin-top:1rem">
+            <table>
+              <thead>
+                <tr>
+                  <th class="n">Pos</th><th class="n">No</th><th>Driver</th><th>Constructor</th>
+                  <th class="n">Laps</th><th>Time / Retired</th><th class="n">Grid</th><th class="n">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr class={r.posNum == null ? 'dnf' : undefined}>
+                    <td class="n">{r.pos}</td>
+                    <td class="n muted">{r.no}</td>
+                    <td>{r.driver}{r.sharedCar && <span class="ui muted" title="Shared drive"> ◊</span>}</td>
+                    <td class="muted"><a href={u(`/teams/${r.constructorId}/`)}>{r.constructor}</a></td>
+                    <td class="n">{r.laps ?? '—'}</td>
+                    <td class="num">{r.time ?? r.gap ?? r.reasonRetired ?? '—'}</td>
+                    <td class="n muted">{r.grid ?? '—'}</td>
+                    <td class="n">{r.points ? pts(r.points) : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="ui muted" style="margin-top:1rem">◊ denotes a shared drive.</p>
+        </section>
+
+        <section style="margin-top:3rem">
+          <h2 class="title-lg">What this page does not show</h2>
+          <p class="ui muted measure" style="margin-top:.7rem">{TIER_NOTE[race.tier]}</p>
+        </section>
+      </>
+    )}
+  </div>
+</Base>
+
+<style>
+  .head { display: flex; gap: clamp(24px, 4vw, 56px); align-items: center; justify-content: space-between; flex-wrap: wrap; padding-block: 26px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); flex: 1 1 420px; }
+  .outline-link { color: var(--ks-ink); transition: transform var(--ks-quick) var(--ks-ease); }
+  .outline-link:hover { transform: translateY(-1px); }
+  .podium { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: clamp(16px, 2vw, 32px); }
+  .podium li { display: flex; gap: 14px; align-items: baseline; border-top: 1px solid var(--ks-edge); padding-top: 12px; }
+  .podium .pos { font-size: 1.6rem; font-weight: 200; color: var(--ks-kinpaku-deep); }
+  .podium .who { display: flex; flex-direction: column; gap: 2px; }
+  tr.dnf td { color: var(--ks-text-muted); }
+  .absence { border-left: 1px solid var(--ks-edge); padding-left: 20px; }
+</style>

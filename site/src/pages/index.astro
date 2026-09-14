@@ -1,0 +1,119 @@
+---
+import Base from '@layouts/Base.astro';
+import Stat from '@components/Stat.astro';
+import CircuitOutline from '@components/CircuitOutline.astro';
+import { meta, seasons, circuits, outline, TIER_LABEL } from '@lib/data';
+import { u } from '@lib/url';
+import { int } from '@lib/format';
+
+const m = meta();
+const latest = seasons().at(-1)!;
+const HERO = ['monza', 'spa-francorchamps', 'monaco', 'silverstone', 'suzuka', 'interlagos'];
+const heroCircuits = HERO.map((id) => ({
+  circuit: circuits().find((c) => c.id === id)!,
+  outline: outline(id)!,
+})).filter((h) => h.circuit && h.outline);
+
+const TIERS = [
+  { key: 'archival',  years: '1950–1995' },
+  { key: 'timing',    years: '1996–2017' },
+  { key: 'telemetry', years: '2018–2022' },
+  { key: 'modern',    years: '2023–2026' },
+] as const;
+---
+<Base title="F1 Analysis">
+  <div class="wrap section">
+    <p class="eyebrow">Formula 1 · {latest.year - 1949} seasons</p>
+    <h1 class="display" style="margin-top:.2em">F1 Analysis</h1>
+    <p class="lead" style="margin-top:1.2em">
+      A static, editorial encyclopaedia of Formula 1. Every circuit, team and race gets one
+      designed page and one permanent URL — and, where the data exists, a real 3D track.
+    </p>
+  </div>
+
+  <div class="wrap">
+    <hr class="rule" />
+    <div class="stats">
+      <Stat label="Seasons"      value={int(m.counts.seasons)} />
+      <Stat label="Races"        value={int(m.counts.races)} />
+      <Stat label="Circuits"     value={int(m.counts.circuits)} />
+      <Stat label="Constructors" value={int(m.counts.constructors)} />
+      <Stat label="Drivers"      value={int(m.counts.drivers)} />
+      <Stat label="Results"      value={int(m.counts.results)} />
+    </div>
+    <hr class="rule" />
+  </div>
+
+  <section class="wrap section">
+    <h2 class="eyebrow">Circuits</h2>
+    <div class="circuit-row">
+      {heroCircuits.map(({ circuit, outline }) => (
+        <a class="circuit-cell plain" href={u(`/circuits/${circuit.id}/`)}>
+          <CircuitOutline outline={outline} name={circuit.name} height={104} />
+          <span class="mono">{circuit.name}</span>
+        </a>
+      ))}
+    </div>
+    <p style="margin-top:2rem"><a href={u('/circuits/')}>All {m.counts.circuits} circuits</a></p>
+  </section>
+
+  <section class="wrap section">
+    <h2 class="title-lg">Coverage is a designed system</h2>
+    <p class="lead" style="margin-top:.8em">
+      Telemetry begins in 2018. That leaves most of the sport's history without lap data,
+      so each era gets its own template and its own charts — never the modern page with
+      empty panels where the data should be.
+    </p>
+    <div class="table-scroll" style="margin-top:2rem">
+      <table>
+        <thead>
+          <tr><th>Tier</th><th>Years</th><th class="n">Races</th><th>What exists</th></tr>
+        </thead>
+        <tbody>
+          {TIERS.map((t) => (
+            <tr>
+              <td><span class="title">{TIER_LABEL[t.key]}</span></td>
+              <td class="num">{t.years}</td>
+              <td class="n">{int(m.tiers[t.key])}</td>
+              <td class="muted">{{
+                archival: 'Results, grid, championship, lineage',
+                timing: 'Lap charts, race trace, stints, pit analysis',
+                telemetry: 'Speed traces, mini-sectors, 3D replay',
+                modern: 'Cross-source enrichment',
+              }[t.key]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <h2 class="title-lg">Seasons</h2>
+    <p style="margin-top:1rem">
+      <a href={u(`/seasons/${latest.year}/`)}>{latest.year}</a> is the current season.
+      <a href={u('/seasons/')}>Browse all {m.counts.seasons}</a>.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: clamp(18px, 3vw, 40px); padding-block: 26px;
+  }
+  /* Explicit column counts rather than auto-fit: six items must not wrap 5 + 1. */
+  .circuit-row {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: clamp(18px, 3vw, 36px); margin-top: 1.4rem;
+  }
+  @media (width >= 560px) { .circuit-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (width >= 1000px) { .circuit-row { grid-template-columns: repeat(6, 1fr); } }
+  .circuit-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    color: var(--ks-ink); text-align: center;
+    transition: transform var(--ks-quick) var(--ks-ease), color var(--ks-quick) var(--ks-ease);
+  }
+  .circuit-cell:hover { transform: translateY(-1px); }
+  .circuit-cell:hover .mono { color: var(--ks-ink); }
+</style>

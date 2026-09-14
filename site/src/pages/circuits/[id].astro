@@ -1,0 +1,126 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '@layouts/Base.astro';
+import Stat from '@components/Stat.astro';
+import CircuitOutline from '@components/CircuitOutline.astro';
+import { circuits, circuit, outline, racesAtCircuit, season } from '@lib/data';
+import { u } from '@lib/url';
+import { km, shortDate, int } from '@lib/format';
+
+export const getStaticPaths = (() =>
+  circuits().map((c) => ({ params: { id: c.id } }))) satisfies GetStaticPaths;
+
+const c = circuit(Astro.params.id!)!;
+const o = outline(c.id);
+const held = racesAtCircuit(c.id);
+const winners = new Map<string, number>();
+for (const r of held) {
+  const w = season(r.year).results[String(r.round)]?.find((x) => x.posNum === 1);
+  if (w) winners.set(w.driver, (winners.get(w.driver) ?? 0) + 1);
+}
+const topWinners = [...winners.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+const first = held.at(-1);
+const last = held[0];
+---
+<Base title={c.name} description={`${c.fullName} — ${c.place}, ${c.country}.`}>
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Circuit · {c.country}</p>
+    <h1 class="headline" style="margin-top:.3em">{c.name}</h1>
+    <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
+
+    {o ? (
+      <figure class="instrument viewport" role="group">
+        <CircuitOutline outline={o} name={c.name} height={300} stroke={1.75} />
+        <figcaption class="mono">
+          {c.place} · {c.direction} · north up · gold marks start–finish
+        </figcaption>
+      </figure>
+    ) : (
+      <div class="absence">
+        <p class="title">No verified geometry</p>
+        <p class="ui muted measure" style="margin-top:.5rem">
+          This circuit has no outline here. Either no openly-licensed trace exists, or the
+          one available disagreed with the recorded lap length by more than 5% — which
+          usually means it traces a different configuration. A wrong outline is worse than
+          none, so nothing is drawn.
+        </p>
+      </div>
+    )}
+
+    <hr class="rule" />
+    <div class="stats">
+      <Stat label="Lap length" value={km(c.length)} />
+      <Stat label="Turns" value={c.turns ?? '—'} />
+      <Stat label="Direction" value={c.direction} />
+      <Stat label="Type" value={c.type} />
+      <Stat label="Races held" value={int(held.length)} />
+      <Stat label="Seasons" value={first && last ? `${first.year}–${last.year}` : '—'} />
+    </div>
+    <hr class="rule" />
+
+    <div class="two-up" style="margin-top:3.4rem">
+      <section>
+        <h2 class="title-lg">Grands Prix held</h2>
+        <div class="table-scroll" style="margin-top:1rem">
+          <table>
+            <thead><tr><th class="n">Year</th><th>Grand Prix</th><th>Date</th><th>Winner</th></tr></thead>
+            <tbody>
+              {held.slice(0, 25).map((r) => {
+                const w = season(r.year).results[String(r.round)]?.find((x) => x.posNum === 1);
+                return (
+                  <tr>
+                    <td class="n"><a href={u(`/races/${r.year}/${r.round}/`)}>{r.year}</a></td>
+                    <td>{r.shortName}</td>
+                    <td class="num muted">{shortDate(r.date)}</td>
+                    <td>{w?.driver ?? <span class="muted">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {held.length > 25 && (
+          <p class="ui muted" style="margin-top:.9rem">
+            Showing the 25 most recent of <span class="num">{held.length}</span>.
+          </p>
+        )}
+      </section>
+
+      <section>
+        <h2 class="title-lg">Most wins here</h2>
+        {topWinners.length ? (
+          <div class="table-scroll" style="margin-top:1rem">
+            <table>
+              <thead><tr><th>Driver</th><th class="n">Wins</th></tr></thead>
+              <tbody>
+                {topWinners.map(([name, n]) => (
+                  <tr><td>{name}</td><td class="n">{n}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p class="ui muted" style="margin-top:1rem">No races recorded.</p>}
+
+        {o && (
+          <p class="ui muted measure" style="margin-top:2rem">
+            Geometry from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a>
+            {o.declaredLength && <> · traced length <span class="num">{o.declaredLength} m</span> against
+            a recorded <span class="num">{c.length ? (c.length * 1000).toFixed(0) : '—'} m</span></>}.
+          </p>
+        )}
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .viewport {
+    margin: 2.6rem 0 3rem; padding: clamp(24px, 4vw, 48px);
+    display: flex; flex-direction: column; align-items: center; gap: 22px;
+  }
+  .viewport :global(svg) { color: var(--ks-instrument-text); }
+  .viewport figcaption { color: var(--ks-instrument-muted); text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
+  .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }
+  .absence { border-left: 1px solid var(--ks-edge); padding-left: 20px; margin: 2.6rem 0 3rem; }
+</style>

@@ -1,0 +1,40 @@
+---
+import type { Outline } from '@lib/types';
+
+interface Props { outline: Outline; name: string; height?: number; stroke?: number; showStart?: boolean; }
+const { outline, name, height = 120, stroke = 1.5, showStart = true } = Astro.props;
+
+// Points arrive fitted to a unit box with y already flipped. Pad so the stroke
+// and the start marker are never clipped at the edge.
+const PAD = 0.06;
+const span = 1 + PAD * 2;
+const d = outline.points
+  .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${(x + 0.5 + PAD).toFixed(4)} ${(y + 0.5 + PAD).toFixed(4)}`)
+  .join('') + 'Z';
+const [sx, sy] = outline.points[0]!;
+---
+<svg
+  class="outline"
+  viewBox={`0 0 ${span} ${span}`}
+  style={`height:${height}px`}
+  role="img"
+  aria-label={`Outline of ${name}${showStart ? ', gold marks start and finish' : ''}`}
+>
+  <path
+    d={d}
+    fill="none"
+    stroke="currentColor"
+    stroke-width={stroke / height * span}
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    vector-effect="non-scaling-stroke"
+  />
+  {showStart && (
+    <circle cx={sx + 0.5 + PAD} cy={sy + 0.5 + PAD} r={2.6 / height * span} fill="var(--ks-kinpaku)" />
+  )}
+</svg>
+
+<style>
+  .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
+  .outline path { stroke-width: 1.5px; }
+</style>

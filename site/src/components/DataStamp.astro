@@ -1,0 +1,17 @@
+---
+import { meta } from '@lib/data';
+import { longDate } from '@lib/format';
+
+interface Props { classification?: 'final' | 'provisional' | 'historic' | 'absent'; }
+const { classification = 'final' } = Astro.props;
+const m = meta();
+---
+<p class="stamp mono num" data-pagefind-ignore>
+  Data as of {longDate(m.dataAsOf)}
+  <span aria-hidden="true"> · </span>F1DB {m.spineRelease}
+  {classification !== 'final' && <><span aria-hidden="true"> · </span>{classification}</>}
+</p>
+
+<style>
+  .stamp { margin: 0; color: var(--ks-text-muted); text-transform: none; letter-spacing: 0.04em; }
+</style>

@@ -1,0 +1,104 @@
+---
+import { Font } from 'astro:assets';
+import { u } from '@lib/url';
+import DataStamp from '@components/DataStamp.astro';
+import '@styles/base.css';
+
+interface Props { title: string; description?: string; eyebrow?: string; }
+const { title, description = 'Every race, circuit and team in Formula 1 — one permanent page each.' } = Astro.props;
+
+const NAV = [
+  { href: '/seasons/', label: 'Seasons' },
+  { href: '/races/', label: 'Races' },
+  { href: '/circuits/', label: 'Circuits' },
+  { href: '/teams/', label: 'Teams' },
+];
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === 'F1 Analysis' ? title : `${title} · F1 Analysis`}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f8f8f8" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <Font cssVariable="--ks-font" preload />
+    <Font cssVariable="--ks-font-display" preload />
+    <Font cssVariable="--ks-mono" />
+  </head>
+  <body>
+    <a class="skip plain" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <div class="wrap masthead-inner">
+        <a class="wordmark plain" href={u('/')}>F1&nbsp;Analysis</a>
+        <nav aria-label="Sections">
+          <ul>
+            {NAV.map((item) => (
+              <li>
+                <a
+                  class="plain nav-link"
+                  href={u(item.href)}
+                  aria-current={path.startsWith(u(item.href)) ? 'page' : undefined}
+                >{item.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+      <hr class="rule" />
+    </header>
+
+    <main id="main"><slot /></main>
+
+    <footer class="footer">
+      <hr class="rule" />
+      <div class="wrap footer-inner">
+        <div class="stack" style="--flow:.5rem">
+          <DataStamp />
+          <p class="ui muted measure">
+            Results and championship data from <a href="https://github.com/f1db/f1db">F1DB</a> (CC BY 4.0).
+            Circuit geometry from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a> (MIT).
+            Methods are published — every derived figure links to the formula behind it.
+          </p>
+          <p class="ui muted measure">
+            Unofficial and unaffiliated. Not associated with Formula 1, the FIA, or any team.
+            F1, FORMULA ONE and related marks are trademarks of Formula One Licensing BV.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip {
+    position: absolute; left: -9999px; top: 0; z-index: 10;
+    background: var(--ks-ink); color: var(--ks-paper);
+    padding: 10px 16px; border-radius: var(--ks-radius-sm);
+  }
+  .skip:focus { left: 12px; top: 12px; }
+
+  .masthead-inner {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 24px; padding-block: 20px; flex-wrap: wrap;
+  }
+  .wordmark {
+    font-size: var(--ks-type-subhead-size);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    font-weight: 500; color: var(--ks-ink);
+  }
+  nav ul { display: flex; gap: clamp(14px, 2vw, 26px); list-style: none; margin: 0; padding: 0; }
+  .nav-link {
+    font-size: var(--ks-type-ui-size); letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ks-text-muted);
+    padding-bottom: 2px; border-bottom: 1px solid transparent;
+  }
+  .nav-link:hover { color: var(--ks-ink); border-bottom-color: var(--ks-kinpaku); }
+  .nav-link[aria-current='page'] { color: var(--ks-ink); border-bottom-color: var(--ks-edge); }
+
+  .footer { margin-top: clamp(56px, 8vw, 104px); }
+  .footer-inner { padding-block: 28px 56px; }
+</style>

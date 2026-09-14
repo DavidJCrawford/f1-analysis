@@ -32,18 +32,6 @@ const straights = cs.map((c, i) => {
 }).filter((s) => s.len > 250).sort((a, b) => b.len - a.len);
 const longest = straights[0];
 
-// Label every corner the spacing allows, tightest first so the significant
-// ones survive the cull rather than whichever happens to come first.
-const MIN_GAP = 21;
-const placed: number[] = [];
-const labelled = [...cs]
-  .sort((a, b) => (a.radius ?? 1e9) - (b.radius ?? 1e9))
-  .filter((c) => {
-    const x = xOfDist(c.apex);
-    if (placed.some((q) => Math.abs(q - x) < MIN_GAP)) return false;
-    placed.push(x); return true;
-  })
-  .sort((a, b) => a.apex - b.apex);
 
 const lefts = cs.filter((c) => c.dir === 'L').length;
 ---
@@ -68,9 +56,6 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
       <line class="apex" x1={xOfDist(c.apex)} y1={CY - 3} x2={xOfDist(c.apex)} y2={CY + 3} />
     ))}
 
-    {labelled.map((c) => (
-      <text class="cnum" x={xOfDist(c.apex)} y={H - 6} text-anchor="middle">{c.n}</text>
-    ))}
 
     {longest && (
       <text class="ann" x={(xOfDist(longest.from) + Math.min(W - PADX, xOfDist(longest.to))) / 2}
@@ -101,7 +86,6 @@ const lefts = cs.filter((c) => c.dir === 'L').length;
   .apex   { stroke: var(--f1-corner); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .straight { fill: var(--ks-kinpaku); fill-opacity: 0.07; }
 
-  .cnum { font-family: var(--ks-mono), monospace; font-size: 11px; fill: var(--ks-text-muted); }
   .ann  { font-family: var(--ks-mono), monospace; font-size: 11px; letter-spacing: .1em;
           text-transform: uppercase; fill: var(--ks-kinpaku-deep); }
 

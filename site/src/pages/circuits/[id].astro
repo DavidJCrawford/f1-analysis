@@ -48,13 +48,13 @@ const last = held[0];
           <h2 class="title-lg">Shape of a lap</h2>
           <TrackProfile profile={prof} name={c.name} />
           <p class="ui muted measure" style="margin-top:1.2rem">
-            Corners are derived from the traced geometry, not from the official
-            timing feed — a corner here is a stretch curving tighter than a 220&nbsp;m
-            radius. Detection is calibrated against the published turn counts for all
-            39 circuits with geometry and lands within two corners for 31 of them, so
-            treat the numbering as descriptive rather than official. Official corner
-            positions exist only in the timing-era feed from 2018 and are a later
-            stage of the pipeline.
+            The red sections are where the track curves tighter than a 220&nbsp;m
+            radius, measured from the geometry. They are deliberately not numbered:
+            official turn numbers are a convention assigned by the circuit and the
+            FIA rather than a property of the shape — Monza's Variante Ascari is one
+            complex numbered as three turns — so no amount of measurement recovers
+            them. The official count is shown above for comparison. Real corner
+            numbering arrives with the timing feed, which covers 2018 onward.
           </p>
         </section>
       )}
@@ -134,9 +134,13 @@ const last = held[0];
 
         {o && (
           <p class="ui muted measure" style="margin-top:2rem">
-            Geometry from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a>
-            {o.declaredLength && <> · traced length <span class="num">{o.declaredLength} m</span> against
-            a recorded <span class="num">{c.length ? (c.length * 1000).toFixed(0) : '—'} m</span></>}.
+            Geometry from {o.source.startsWith('TUMFTM')
+              ? <><a href="https://github.com/TUMFTM/racetrack-database">TUMFTM/racetrack-database</a>,
+                  derived from <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> (ODbL)</>
+              : <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a>}
+            · <span class="num">{o.spacing.toFixed(1)} m</span> between points
+            · measures <span class="num">{(o.length / 1000).toFixed(3)} km</span> against
+            a recorded <span class="num">{c.length?.toFixed(3)} km</span>.
           </p>
         )}
       </section>

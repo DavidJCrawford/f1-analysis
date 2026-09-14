@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit outlines profile data build preview check banner clean
+.PHONY: help spine emit geo outlines profile data build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -23,7 +23,10 @@ spine: ## Download the current F1DB release (CC BY 4.0)
 emit: ## F1DB CSV -> canonical JSON in site/data/
 	python3 pipeline/f1db_emit.py $(F1DB_DIR)
 
-outlines: ## Crosswalk circuit geometry onto F1DB ids (length-validated)
+geo: ## Report which geometry source each circuit resolves to
+	python3 pipeline/geo.py
+
+outlines: ## Normalised outlines from the best geometry available (length-validated)
 	python3 pipeline/outlines.py
 
 data: spine emit outlines profile ## Full data refresh

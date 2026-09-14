@@ -78,7 +78,7 @@ prevents this is [source roles](source-roles.md), and it is enforced in code.
 | FastF1 | 3.8.3 (29 Apr 2026) | MIT (code only) | permitted | no | Tool. The *data* it fetches is F1's — **build-time only** |
 | jolpica-f1 | live API + CSV dumps | CC BY-**NC-SA** 4.0 | forbidden | yes | **Build-time gap-fill. Never redistributed.** |
 | OpenF1 | 2023+ | CC BY-**NC-SA** 4.0 | forbidden | yes | **Build-time cross-check. Never redistributed.** |
-| TUMFTM/racetrack-database | 25 tracks (~19 F1) | **LGPL-3.0** | permitted | copyleft | Centreline + width — build-time, obligations tracked |
+| TUMFTM/racetrack-database | 24 tracks (19 used) | **LGPL-3.0 over ODbL** | permitted | copyleft + share-alike | Centreline + width — **redistributed** as derived outlines. Its README states the centrelines came from OpenStreetMap, so ODbL sits underneath: attribute OSM contributors and offer the derived geometry onward under ODbL |
 | MultiViewer API | undocumented | **no terms published** | unknown | unknown | **Blocked pending contact** |
 | Copernicus GLO-30 DEM | — | free, attribution required | permitted | no | Distant terrain only |
 | f1tenth/f1tenth_racetracks | 23 tracks | GPL-3.0 | permitted | copyleft | **Not used.** Also 1:10 scaled with a fixed 2.20 m width |

@@ -60,7 +60,12 @@ export interface SeasonFile {
 /** Normalised circuit outline, fitted to a unit box, y already flipped for SVG. */
 export interface Outline {
   points: [number, number][]; aspect: number;
-  declaredLength: number | null; openedYear: number | null;
+  /** Measured from the geometry, in metres. */
+  length: number;
+  /** Mean distance between traced points, in metres. */
+  spacing: number;
+  /** Fractional disagreement with the recorded circuit length. */
+  lengthError: number;
   sourceId: string; source: string;
 }
 

@@ -213,7 +213,7 @@ and the boundary is enforced in the pipeline, not by good intentions.**
 | **OpenF1** | 2023+ | CC BY-**NC-SA** 4.0 | **Build-time cross-check only.** Same reason. |
 | **MultiViewer** | undocumented API | **no terms published** | **Blocked pending contact.** See §13. |
 | **bacinger/f1-circuits** | 40 circuits | MIT | Circuit outlines — redistributable. |
-| **TUMFTM/racetrack-database** | 25 tracks (~19 F1) | **LGPL-3.0** | Centreline + width. Build-time; LGPL obligations tracked. |
+| **TUMFTM/racetrack-database** | 24 tracks (19 used) | **LGPL-3.0 over ODbL** | Centreline + width, **redistributed** as derived outlines for 19 circuits. OSM-derived, so OSM attribution and onward ODbL apply. |
 | **F1DB circuit SVGs** | in-repo only | CC BY 4.0 | 2D layout diagrams. |
 | **Copernicus GLO-30 DEM** | — | free, attribution | Distant terrain only. |
 

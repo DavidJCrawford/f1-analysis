@@ -10,38 +10,39 @@ interface Props {
 const { outline, name, height = 120, stroke = 1.5, showStart = true,
         corners = [], lapLength } = Astro.props;
 
-const labelled = corners.length > 0 && lapLength != null;
-const PAD = labelled ? 0.14 : 0.06;
+const marked = corners.length > 0 && lapLength != null;
+const PAD = 0.06;
 const span = 1 + PAD * 2;
 const px = (x: number) => x + 0.5 + PAD;
-const unit = (v: number) => (v / height) * span;   // px -> viewBox units
+const unit = (v: number) => (v / height) * span;
 
 const d = outline.points
   .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
   .join('') + 'Z';
 const [sx, sy] = outline.points[0]!;
-
 const cx = outline.points.reduce((s, q) => s + q[0], 0) / outline.points.length;
 const cy = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
 
 /**
- * Start/finish: a chequered band laid across the track, squared to the local
- * tangent so it reads as a line on the tarmac rather than a sticker on top of
- * it. Only the filled squares are drawn — the gaps are transparent, so the
- * same geometry reads correctly on the dark instrument panel and on paper.
- * Below about 240px the squares fall under a pixel and turn to mush, so small
- * renders keep the single dot.
+ * The stretch of track each corner occupies, drawn over the base line. These
+ * are cornering sections derived from curvature — deliberately NOT numbered.
+ * Official turn numbers are a convention assigned by the circuit and the FIA,
+ * not a property of the shape: Monza's Variante Ascari is one complex numbered
+ * as three turns. Numbering derived sections would assert something the
+ * geometry cannot support.
  */
-const CHEQUER = showStart && height >= 240;
+const arcs = marked ? corners.map((c) =>
+  subPath(outline.points, c.entry / lapLength!, c.exit / lapLength!)
+    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
+    .join('')) : [];
 
-// Two parallel dashed strokes, the second offset by half a period, give a
-// chequer whose squares meet edge to edge. Drawing individual polygons instead
-// leaves them touching only at the corners, which reads as a scatter rather
-// than a line.
-const CELL = 3.8, COLS = 9;                       // px
+// Start/finish: a chequered band squared to the local tangent. Two dashed
+// strokes offset by half a period, so the squares meet edge to edge.
+const CHEQUER = showStart && height >= 240;
+const CELL = 3.8, COLS = 9;
 const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
 const sN = startFrame.n;
-const sT: [number, number] = [-sN[1], sN[0]];     // along the track
+const sT: [number, number] = [-sN[1], sN[0]];
 const cell = unit(CELL);
 const halfLen = (cell * COLS) / 2;
 const sOx = px(startFrame.p[0]), sOy = px(startFrame.p[1]);
@@ -53,53 +54,13 @@ const rows = [0.5, -0.5].map((side, i) => {
     offset: i === 0 ? 0 : cell,
   };
 });
-
-/**
- * Every corner gets a number. Labels are pushed out along the local outward
- * normal, and a colliding label is pushed further rather than dropped — a
- * missing number reads as missing data, which is worse than a crowded map.
- * Anything displaced beyond the base offset gets a leader line back to its dot.
- */
-const BASE = 13, STEP = 7, MAX = 52;
-const box = (n: number) => ({ w: unit(String(n).length * 6.2 + 5), h: unit(11) });
-
-// The full arc of each corner, entry to exit, drawn over the base line. The
-// profile stage records these as distances along the lap; the outline is the
-// same trace, so arc-length fraction is the shared key.
-const arcs = labelled ? corners.map((c) => ({
-  n: c.n,
-  d: subPath(outline.points, c.entry / lapLength!, c.exit / lapLength!)
-      .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
-      .join(''),
-})) : [];
-
-const placed: { x: number; y: number; w: number; h: number }[] = [];
-const marks = labelled ? corners.map((c) => {
-  const { p, n } = pointAndNormal(outline.points, c.apex / lapLength!, [cx, cy]);
-  const dx = px(p[0]), dy = px(p[1]);
-  const { w, h } = box(c.n);
-
-  let off = BASE, lx = dx, ly = dy;
-  for (; off <= MAX; off += STEP) {
-    lx = dx + n[0] * unit(off);
-    ly = dy + n[1] * unit(off);
-    const clash = placed.some((q) =>
-      Math.abs(q.x - lx) < (q.w + w) / 2 && Math.abs(q.y - ly) < (q.h + h) / 2);
-    if (!clash) break;
-  }
-  if (off > MAX) off = MAX;                 // place it anyway; never drop
-  placed.push({ x: lx, y: ly, w, h });
-
-  return { n: c.n, dx, dy, lx, ly, leader: off > BASE + STEP,
-           nx: n[0], ny: n[1], off };
-}) : [];
 ---
 <svg
   class="outline"
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
-  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners highlighted in red and numbered in lap order` : ''}${showStart ? (CHEQUER ? ', a chequered line marks start and finish' : ', gold marks start and finish') : ''}`}
+  aria-label={`Outline of ${name}${marked ? `, with ${corners.length} cornering sections highlighted in red` : ''}${showStart ? ', and a chequered line at start and finish' : ''}`}
 >
   <path
     class="track" d={d} fill="none" stroke="currentColor"
@@ -109,21 +70,10 @@ const marks = labelled ? corners.map((c) => {
   />
 
   {arcs.map((a) => (
-    <path class="corner-arc" d={a.d} fill="none"
+    <path class="corner-arc" d={a} fill="none"
           style={`stroke-width:${stroke * 2.6}px`}
           stroke-linecap="round" stroke-linejoin="round"
           vector-effect="non-scaling-stroke" />
-  ))}
-
-  {marks.filter((m) => m.leader).map((m) => (
-    <line class="leader"
-          x1={m.dx + m.nx * unit(3.5)} y1={m.dy + m.ny * unit(3.5)}
-          x2={m.lx - m.nx * unit(5)}   y2={m.ly - m.ny * unit(5)} />
-  ))}
-
-  {marks.map((m) => (
-    <text class="corner-num" x={m.lx} y={m.ly + unit(3.3)}
-          text-anchor="middle" style={`font-size:${unit(9.5)}px`}>{m.n}</text>
   ))}
 
   {CHEQUER
@@ -138,7 +88,5 @@ const marks = labelled ? corners.map((c) => {
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
   .corner-arc { stroke: var(--f1-corner); }
-  .corner-num { fill: currentColor; fill-opacity: .78; font-family: var(--ks-mono), monospace; }
-  .leader { stroke: currentColor; stroke-opacity: .28; stroke-width: 1; vector-effect: non-scaling-stroke; }
   .chequer { stroke: currentColor; }
 </style>

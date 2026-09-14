@@ -11,8 +11,11 @@ timing-era telemetry feed (2018+) and are a later pipeline stage.
 See Docs/knowledge/references/circuits/corner-and-sector-detection.md
 """
 from __future__ import annotations
-import json, math
+import json, math, sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from geo import load_centrelines  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 GEO  = ROOT / "pipeline" / "vendor" / "f1-circuits.geojson"
@@ -33,21 +36,6 @@ MIN_ARC       = 25.0   # m — a corner must persist this far
 MERGE_GAP     = 40.0   # m — runs closer than this are one corner complex
 DISPLAY_MAX   = 420    # emitted profile samples per circuit
 
-# WGS84
-A, F = 6378137.0, 1 / 298.257223563
-E2 = F * (2 - F)
-
-
-def scales(lat0: float) -> tuple[float, float]:
-    """Metres per degree of longitude and latitude at lat0, on the ellipsoid.
-
-    Using the equatorial radius for both axes - the usual shortcut - is a
-    systematic 0.4-2.5 m scale error at F1 latitudes, not noise.
-    """
-    s = math.sin(math.radians(lat0))
-    n = A / math.sqrt(1 - E2 * s * s)                 # prime vertical
-    m = A * (1 - E2) / (1 - E2 * s * s) ** 1.5        # meridional
-    return n * math.cos(math.radians(lat0)) * math.pi / 180, m * math.pi / 180
 
 
 def resample(pts: list[tuple[float, float]], step: float) -> list[tuple[float, float]]:
@@ -131,18 +119,11 @@ def find_corners(kappa: list[float], step: float) -> list[dict]:
 
 
 circuits = {c["id"]: c for c in json.loads((DATA / "circuits.json").read_text())}
-outlines = json.loads((DATA / "outlines.json").read_text())
-feats = {f["properties"]["id"]: f for f in json.loads(GEO.read_text())["features"]}
-src_to_cid = {v["sourceId"]: k for k, v in outlines.items()}
+lines = load_centrelines()
 
 profiles, report = {}, []
-for sid, cid in sorted(src_to_cid.items()):
-    co = feats[sid]["geometry"]["coordinates"]
-    lat0 = sum(c[1] for c in co) / len(co)
-    kx, ky = scales(lat0)
-    lon0 = sum(c[0] for c in co) / len(co)
-    pts = [((c[0] - lon0) * kx, (c[1] - lat0) * ky) for c in co]
-    if math.dist(pts[0], pts[-1]) < 1.0: pts = pts[:-1]
+for cid, v in sorted(lines.items()):
+    pts = list(v["pts"])
     pts.append(pts[0])
 
     rs = resample(pts, STEP)
@@ -169,16 +150,16 @@ for sid, cid in sorted(src_to_cid.items()):
         "k": [round(k * 1000, 3) for k in dk[::stride]],
         "corners": corners, "detected": len(corners), "officialTurns": official,
     }
-    report.append((cid, len(corners), official, length, circuits[cid]["length"]))
+    report.append((cid, len(corners), official, length, circuits[cid]["length"], v["spacing"]))
 
 (DATA / "profiles.json").write_text(
     json.dumps(profiles, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
 
 exact = sum(1 for _, d, o, *_ in report if o and d == o)
 close = sum(1 for _, d, o, *_ in report if o and abs(d - o) <= 2)
-print(f"{'circuit':22} {'detected':>8} {'official':>8} {'geom len':>9} {'f1db len':>9}")
-for cid, d, o, gl, rl in sorted(report, key=lambda r: -(r[1] or 0))[:14]:
-    flag = "" if o and abs(d - o) <= 2 else "   <-- disagrees"
-    print(f"{cid:22} {d:8} {str(o or '—'):>8} {gl:8.0f}m {(rl*1000 if rl else 0):8.0f}m{flag}")
+print(f"{'circuit':22} {'detected':>8} {'official':>8} {'spacing':>8}")
+for cid, d, o, gl, rl, sp in sorted(report, key=lambda r: -(r[1] or 0))[:10]:
+    flag = "" if o and abs(d - o) <= 2 else "   <-- differs by >2"
+    print(f"{cid:22} {d:8} {str(o or '-'):>8} {sp:7.1f}m{flag}")
 print(f"\n{len(profiles)} profiles · exact match {exact}/{len(report)} · within 2 {close}/{len(report)}")
 print(f"{(DATA/'profiles.json').stat().st_size/1024:.0f} KB")

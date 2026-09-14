@@ -4,7 +4,7 @@ import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
 import RaceReplay from '@components/RaceReplay.astro';
-import { races, season, circuit, outline, replay, TIER_LABEL, TIER_NOTE } from '@lib/data';
+import { races, season, circuit, outline, replay, TIER_LABEL } from '@lib/data';
 import { u } from '@lib/url';
 import { longDate, km, pts } from '@lib/format';
 
@@ -111,10 +111,6 @@ const finished = results.filter((r) => r.posNum != null).length;
           <p class="ui muted" style="margin-top:1rem">◊ denotes a shared drive.</p>
         </section>
 
-        <section style="margin-top:3rem">
-          <h2 class="title-lg">What this page does not show</h2>
-          <p class="ui muted measure" style="margin-top:.7rem">{TIER_NOTE[race.tier]}</p>
-        </section>
       </>
     )}
   </div>

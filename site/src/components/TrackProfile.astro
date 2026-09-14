@@ -1,0 +1,111 @@
+---
+import type { Profile } from '@lib/types';
+
+interface Props { profile: Profile; name: string; }
+const { profile: p, name } = Astro.props;
+
+const W = 1000, H = 190, CY = 96, AMP = 66, PADX = 6;
+
+// Deflection is sqrt-scaled: a hairpin and a fast kink differ by ~30x in
+// curvature, and a linear scale renders everything but the hairpins flat.
+const kappa = p.k;
+const kMax = Math.max(...kappa.map(Math.abs), 1e-6);
+const n = kappa.length;
+const xAt = (i: number) => PADX + (i / (n - 1)) * (W - PADX * 2);
+const yAt = (k: number) => CY - Math.sign(k) * Math.sqrt(Math.abs(k) / kMax) * AMP;
+
+const ribbon =
+  `M${xAt(0).toFixed(1)} ${CY}` +
+  kappa.map((k, i) => `L${xAt(i).toFixed(1)} ${yAt(k).toFixed(1)}`).join('') +
+  `L${xAt(n - 1).toFixed(1)} ${CY}Z`;
+
+// Position along the lap -> x. The profile is sampled at uniform arc length.
+const xOfDist = (d: number) => PADX + (d / p.length) * (W - PADX * 2);
+
+// Straights: the gaps between detected corners, wrapping the start/finish line.
+const cs = p.corners;
+const straights = cs.map((c, i) => {
+  const next = cs[(i + 1) % cs.length]!;
+  const from = c.exit;
+  const to = i === cs.length - 1 ? next.entry + p.length : next.entry;
+  return { from, to, len: to - from };
+}).filter((s) => s.len > 250).sort((a, b) => b.len - a.len);
+const longest = straights[0];
+
+// Label every corner the spacing allows, tightest first so the significant
+// ones survive the cull rather than whichever happens to come first.
+const MIN_GAP = 21;
+const placed: number[] = [];
+const labelled = [...cs]
+  .sort((a, b) => (a.radius ?? 1e9) - (b.radius ?? 1e9))
+  .filter((c) => {
+    const x = xOfDist(c.apex);
+    if (placed.some((q) => Math.abs(q - x) < MIN_GAP)) return false;
+    placed.push(x); return true;
+  })
+  .sort((a, b) => a.apex - b.apex);
+
+const lefts = cs.filter((c) => c.dir === 'L').length;
+---
+<figure class="profile" role="group">
+  <figcaption class="eyebrow">
+    The lap unrolled · left turns deflect up, right turns down · flat is straight
+  </figcaption>
+
+  <svg viewBox={`0 0 ${W} ${H}`} class="chart"
+       role="img"
+       aria-label={`Curvature profile of ${name}. ${cs.length} detected corners, ${lefts} left and ${cs.length - lefts} right, around a ${(p.length / 1000).toFixed(3)} kilometre lap.`}>
+    {longest && (
+      <rect class="straight" x={xOfDist(longest.from)} y={CY - AMP - 10}
+            width={Math.min(W - PADX, xOfDist(longest.to)) - xOfDist(longest.from)}
+            height={(AMP + 10) * 2} />
+    )}
+
+    <line class="axis" x1={PADX} y1={CY} x2={W - PADX} y2={CY} />
+    <path class="ribbon" d={ribbon} />
+
+    {cs.map((c) => (
+      <line class="apex" x1={xOfDist(c.apex)} y1={CY - 3} x2={xOfDist(c.apex)} y2={CY + 3} />
+    ))}
+
+    {labelled.map((c) => (
+      <text class="cnum" x={xOfDist(c.apex)} y={H - 6} text-anchor="middle">{c.n}</text>
+    ))}
+
+    {longest && (
+      <text class="ann" x={(xOfDist(longest.from) + Math.min(W - PADX, xOfDist(longest.to))) / 2}
+            y={14} text-anchor="middle">
+        longest straight · {Math.round(longest.len)} m
+      </text>
+    )}
+  </svg>
+
+  <p class="ui muted note">
+    <strong class="num">{cs.length}</strong> corners detected from the trace
+    — {lefts} left, {cs.length - lefts} right
+    {p.officialTurns != null && (
+      <> · official count <strong class="num">{p.officialTurns}</strong>
+      {p.officialTurns !== cs.length && (
+        <span class="disagree"> (differs by {Math.abs(p.officialTurns - cs.length)})</span>
+      )}</>
+    )}
+  </p>
+</figure>
+
+<style>
+  .profile { margin: 0; }
+  .chart { display: block; width: 100%; height: auto; margin-top: 14px; overflow: visible; }
+
+  .ribbon { fill: var(--ks-ink); fill-opacity: 0.1; stroke: var(--ks-ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .axis   { stroke: var(--ks-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .apex   { stroke: var(--ks-kinpaku-deep); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .straight { fill: var(--ks-kinpaku); fill-opacity: 0.07; }
+
+  .cnum { font-family: var(--ks-mono), monospace; font-size: 11px; fill: var(--ks-text-muted); }
+  .ann  { font-family: var(--ks-mono), monospace; font-size: 11px; letter-spacing: .1em;
+          text-transform: uppercase; fill: var(--ks-kinpaku-deep); }
+
+  .note { margin-top: 14px; }
+  .note strong { font-weight: 600; color: var(--ks-ink); }
+  .disagree { color: var(--ks-text-muted); }
+</style>

@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit outlines data build preview check banner clean
+.PHONY: help spine emit outlines profile data build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -26,7 +26,7 @@ emit: ## F1DB CSV -> canonical JSON in site/data/
 outlines: ## Crosswalk circuit geometry onto F1DB ids (length-validated)
 	python3 pipeline/outlines.py
 
-data: spine emit outlines ## Full data refresh
+data: spine emit outlines profile ## Full data refresh
 
 build: ## Build the site and its search index
 	cd $(SITE) && npm run build
@@ -42,3 +42,6 @@ clean:
 
 banner: ## Regenerate the README banner
 	python3 pipeline/banner.py
+
+profile: ## Derive curvature profiles and corner detection
+	python3 pipeline/profile.py

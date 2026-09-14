@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
-  Meta, Season, Circuit, Constructor, Race, SeasonFile, Outline,
+  Meta, Season, Circuit, Constructor, Race, SeasonFile, Outline, Profile,
 } from './types';
 
 declare const __DATA_DIR__: string;
@@ -28,9 +28,11 @@ export const circuits = () => load<Circuit[]>('circuits.json');
 export const constructors = () => load<Constructor[]>('constructors.json');
 export const races = () => load<Race[]>('races.json');
 export const outlines = () => load<Record<string, Outline>>('outlines.json');
+export const profiles = () => load<Record<string, Profile>>('profiles.json');
 
 export const season = (year: number) => load<SeasonFile>(`seasons/${year}.json`);
 export const outline = (circuitId: string): Outline | null => outlines()[circuitId] ?? null;
+export const profile = (circuitId: string): Profile | null => profiles()[circuitId] ?? null;
 
 export const circuit = (id: string) => circuits().find((c) => c.id === id) ?? null;
 export const constructorById = (id: string) => constructors().find((c) => c.id === id) ?? null;

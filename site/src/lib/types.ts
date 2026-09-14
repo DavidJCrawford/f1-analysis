@@ -63,3 +63,15 @@ export interface Outline {
   declaredLength: number | null; openedYear: number | null;
   sourceId: string; source: string;
 }
+
+export interface Corner {
+  n: number; entry: number; apex: number; exit: number;
+  radius: number | null; dir: 'L' | 'R'; arc: number;
+}
+
+export interface Profile {
+  length: number; step: number;
+  /** Signed display curvature in 1/km. Positive is a left turn; 0 is straight. */
+  k: number[];
+  corners: Corner[]; detected: number; officialTurns: number | null;
+}

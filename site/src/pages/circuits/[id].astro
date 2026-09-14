@@ -3,7 +3,8 @@ import type { GetStaticPaths } from 'astro';
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
-import { circuits, circuit, outline, racesAtCircuit, season } from '@lib/data';
+import TrackProfile from '@components/TrackProfile.astro';
+import { circuits, circuit, outline, profile, racesAtCircuit, season } from '@lib/data';
 import { u } from '@lib/url';
 import { km, shortDate, int } from '@lib/format';
 
@@ -12,6 +13,7 @@ export const getStaticPaths = (() =>
 
 const c = circuit(Astro.params.id!)!;
 const o = outline(c.id);
+const prof = profile(c.id);
 const held = racesAtCircuit(c.id);
 const winners = new Map<string, number>();
 for (const r of held) {
@@ -29,12 +31,33 @@ const last = held[0];
     <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
 
     {o ? (
+      <>
       <figure class="instrument viewport" role="group">
-        <CircuitOutline outline={o} name={c.name} height={300} stroke={1.75} />
+        <CircuitOutline
+          outline={o} name={c.name} height={320} stroke={1.75}
+          corners={prof?.corners ?? []} lapLength={prof?.length}
+        />
         <figcaption class="mono">
           {c.place} · {c.direction} · north up · gold marks start–finish
         </figcaption>
       </figure>
+
+      {prof && (
+        <section class="profile-block">
+          <h2 class="title-lg">Shape of a lap</h2>
+          <TrackProfile profile={prof} name={c.name} />
+          <p class="ui muted measure" style="margin-top:1.2rem">
+            Corners are derived from the traced geometry, not from the official
+            timing feed — a corner here is a stretch curving tighter than a 220&nbsp;m
+            radius. Detection is calibrated against the published turn counts for all
+            39 circuits with geometry and lands within two corners for 31 of them, so
+            treat the numbering as descriptive rather than official. Official corner
+            positions exist only in the timing-era feed from 2018 and are a later
+            stage of the pipeline.
+          </p>
+        </section>
+      )}
+      </>
     ) : (
       <div class="absence">
         <p class="title">No verified geometry</p>
@@ -119,6 +142,7 @@ const last = held[0];
     display: flex; flex-direction: column; align-items: center; gap: 22px;
   }
   .viewport :global(svg) { color: var(--ks-instrument-text); }
+  .profile-block { margin: 3.4rem 0; }
   .viewport figcaption { color: var(--ks-instrument-muted); text-align: center; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
   .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }

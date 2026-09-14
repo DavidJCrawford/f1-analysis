@@ -1,40 +1,74 @@
 ---
-import type { Outline } from '@lib/types';
+import type { Outline, Corner } from '@lib/types';
+import { pointAtFraction } from '@lib/geometry';
 
-interface Props { outline: Outline; name: string; height?: number; stroke?: number; showStart?: boolean; }
-const { outline, name, height = 120, stroke = 1.5, showStart = true } = Astro.props;
+interface Props {
+  outline: Outline; name: string;
+  height?: number; stroke?: number; showStart?: boolean;
+  corners?: Corner[]; lapLength?: number;
+}
+const { outline, name, height = 120, stroke = 1.5, showStart = true,
+        corners = [], lapLength } = Astro.props;
 
-// Points arrive fitted to a unit box with y already flipped. Pad so the stroke
-// and the start marker are never clipped at the edge.
-const PAD = 0.06;
+const PAD = corners.length ? 0.15 : 0.06;
 const span = 1 + PAD * 2;
+const px = (x: number) => x + 0.5 + PAD;
 const d = outline.points
-  .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${(x + 0.5 + PAD).toFixed(4)} ${(y + 0.5 + PAD).toFixed(4)}`)
+  .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x).toFixed(4)} ${px(y).toFixed(4)}`)
   .join('') + 'Z';
 const [sx, sy] = outline.points[0]!;
+const unit = (v: number) => (v / height) * span;
+
+// Labels sit outside the track, pushed along the ray from the circuit's centre,
+// so a number never lands on the racing line it belongs to.
+const cxAvg = outline.points.reduce((s, q) => s + q[0], 0) / outline.points.length;
+const cyAvg = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
+
+const raw = lapLength
+  ? corners.map((c) => {
+      const [x, y] = pointAtFraction(outline.points, c.apex / lapLength);
+      const dx = x - cxAvg, dy = y - cyAvg;
+      const len = Math.hypot(dx, dy) || 1;
+      const off = unit(13);
+      return { n: c.n, x: px(x), y: px(y),
+               lx: px(x) + (dx / len) * off, ly: px(y) + (dy / len) * off };
+    })
+  : [];
+
+// Cull labels that would overlap; the dot stays either way.
+const MIN = unit(15);
+const kept: { lx: number; ly: number }[] = [];
+const marks = raw.map((m) => {
+  const clash = kept.some((q) => Math.hypot(q.lx - m.lx, q.ly - m.ly) < MIN);
+  if (!clash) kept.push(m);
+  return { ...m, label: !clash };
+});
 ---
 <svg
   class="outline"
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
-  aria-label={`Outline of ${name}${showStart ? ', gold marks start and finish' : ''}`}
+  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners marked` : ''}${showStart ? ', gold marks start and finish' : ''}`}
 >
   <path
-    d={d}
-    fill="none"
-    stroke="currentColor"
-    stroke-width={stroke / height * span}
-    stroke-linejoin="round"
-    stroke-linecap="round"
+    d={d} fill="none" stroke="currentColor"
+    stroke-width={unit(stroke)} stroke-linejoin="round" stroke-linecap="round"
     vector-effect="non-scaling-stroke"
   />
-  {showStart && (
-    <circle cx={sx + 0.5 + PAD} cy={sy + 0.5 + PAD} r={2.6 / height * span} fill="var(--ks-kinpaku)" />
-  )}
+
+  {marks.map((m) => <circle cx={m.x} cy={m.y} r={unit(2.2)} class="corner-dot" />)}
+  {marks.filter((m) => m.label).map((m) => (
+    <text x={m.lx} y={m.ly + unit(3.4)} text-anchor="middle"
+          class="corner-num" style={`font-size:${unit(9.5)}px`}>{m.n}</text>
+  ))}
+
+  {showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.8)} fill="var(--ks-kinpaku)" />}
 </svg>
 
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
   .outline path { stroke-width: 1.5px; }
+  .corner-dot { fill: currentColor; fill-opacity: .5; }
+  .corner-num { fill: currentColor; fill-opacity: .7; font-family: var(--ks-mono), monospace; }
 </style>

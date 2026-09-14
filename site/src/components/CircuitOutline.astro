@@ -25,6 +25,36 @@ const cx = outline.points.reduce((s, q) => s + q[0], 0) / outline.points.length;
 const cy = outline.points.reduce((s, q) => s + q[1], 0) / outline.points.length;
 
 /**
+ * Start/finish: a chequered band laid across the track, squared to the local
+ * tangent so it reads as a line on the tarmac rather than a sticker on top of
+ * it. Only the filled squares are drawn — the gaps are transparent, so the
+ * same geometry reads correctly on the dark instrument panel and on paper.
+ * Below about 240px the squares fall under a pixel and turn to mush, so small
+ * renders keep the single dot.
+ */
+const CHEQUER = showStart && height >= 240;
+
+// Two parallel dashed strokes, the second offset by half a period, give a
+// chequer whose squares meet edge to edge. Drawing individual polygons instead
+// leaves them touching only at the corners, which reads as a scatter rather
+// than a line.
+const CELL = 1.9, COLS = 9;                       // px
+const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
+const sN = startFrame.n;
+const sT: [number, number] = [-sN[1], sN[0]];     // along the track
+const cell = unit(CELL);
+const halfLen = (cell * COLS) / 2;
+const sOx = px(startFrame.p[0]), sOy = px(startFrame.p[1]);
+const rows = [0.5, -0.5].map((side, i) => {
+  const ox = sOx + sT[0] * side * cell, oy = sOy + sT[1] * side * cell;
+  return {
+    x1: ox - sN[0] * halfLen, y1: oy - sN[1] * halfLen,
+    x2: ox + sN[0] * halfLen, y2: oy + sN[1] * halfLen,
+    offset: i === 0 ? 0 : cell,
+  };
+});
+
+/**
  * Every corner gets a number. Labels are pushed out along the local outward
  * normal, and a colliding label is pushed further rather than dropped — a
  * missing number reads as missing data, which is worse than a crowded map.
@@ -59,7 +89,7 @@ const marks = labelled ? corners.map((c) => {
   viewBox={`0 0 ${span} ${span}`}
   style={`height:${height}px`}
   role="img"
-  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners numbered in lap order` : ''}${showStart ? ', gold marks start and finish' : ''}`}
+  aria-label={`Outline of ${name}${corners.length ? `, ${corners.length} corners numbered in lap order` : ''}${showStart ? (CHEQUER ? ', a chequered line marks start and finish' : ', gold marks start and finish') : ''}`}
 >
   <path
     d={d} fill="none" stroke="currentColor"
@@ -80,7 +110,13 @@ const marks = labelled ? corners.map((c) => {
           text-anchor="middle" style={`font-size:${unit(9.5)}px`}>{m.n}</text>
   ))}
 
-  {showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
+  {CHEQUER
+    ? rows.map((r) => (
+        <line class="chequer" x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2}
+              stroke-width={cell} stroke-dasharray={`${cell} ${cell}`}
+              stroke-dashoffset={r.offset} />
+      ))
+    : showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
 </svg>
 
 <style>
@@ -89,4 +125,5 @@ const marks = labelled ? corners.map((c) => {
   .corner-dot { fill: currentColor; fill-opacity: .55; }
   .corner-num { fill: currentColor; fill-opacity: .78; font-family: var(--ks-mono), monospace; }
   .leader { stroke: currentColor; stroke-opacity: .28; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .chequer { stroke: currentColor; }
 </style>

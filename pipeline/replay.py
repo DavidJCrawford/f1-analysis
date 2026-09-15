@@ -297,6 +297,7 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
     for n in by_driver:
         by_driver[n].sort()
 
+    grid0: list[tuple[float, int]] = []                  # (progress, car) at the lights
     order = [[0] * len(nums) for _ in range(frames)]
     downs = [[0] * len(nums) for _ in range(frames)]    # laps behind the leader
     leadlap = [0] * frames                              # the lap the race is on
@@ -396,6 +397,55 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         ranked = sorted(range(len(nums)), key=lambda i: prog[i], reverse=True)
         for pos, ci in enumerate(ranked):
             order[f][pos] = ci
+
+        if f == 0:                       # the grid, for the start line below
+            grid0 = [(prog[i][0], i) for i in ranked if not pit[i] and xs[0][i] != ABSENT]
+
+    # ── the start line ──────────────────────────────────────────────────────
+    # Not the same line as the one laps are counted at. A Formula 1 circuit has
+    # two: the finish line, placed opposite race control so a close finish can
+    # be judged by eye, and the start line at the front of the grid. Index 0 of
+    # the centreline is the finish line — that is the one the timing feed rolls
+    # the lap counter on, and it can be most of the way round the grid from the
+    # front of it, or a couple of hundred metres before the back of it.
+    #
+    # So the line to draw at a standing start is the start line, and the grid
+    # itself is what locates it: the field lines up behind it at a fixed eight
+    # metres a slot, which makes it half a slot ahead of pole. Measured from the
+    # field rather than assumed, so a circuit spacing its grid differently still
+    # comes out right.
+    def line_at(frac: float) -> dict:
+        """A point on the centreline, with the direction of travel there."""
+        at = (frac % 1.0) * TLAP
+        for j in range(len(order_track)):
+            if at <= tseg[j] or j == len(order_track) - 1:
+                u = at / tseg[j] if tseg[j] else 0.0
+                ax, ay = order_track[j]
+                bx, by = order_track[(j + 1) % len(order_track)]
+                tx, ty = bx - ax, by - ay
+                tl = math.hypot(tx, ty) or 1.0
+                return {"x": round(ax + tx * u, 2), "y": round(ay + ty * u, 2),
+                        "tx": round(tx / tl, 6), "ty": round(ty / tl, 6)}
+            at -= tseg[j]
+        return {"x": 0.0, "y": 0.0, "tx": 1.0, "ty": 0.0}
+
+    start = None
+    if order_track and len(grid0) >= 5 and frames > 2:
+        ahead = [g[0] for g in grid0]                        # pole first, in laps
+        gaps = sorted(ahead[k] - ahead[k + 1] for k in range(len(ahead) - 1))
+        slot = gaps[len(gaps) // 2] * TLAP / scale           # median, in metres
+        # Only when the field is still in grid formation. Two things say it is:
+        # the cars are a grid slot apart, and the race has not yet run away from
+        # the line. Some rounds open a second or two after the lights, with the
+        # field intact but rolling, and those are worth keeping — the line comes
+        # out a few metres long. Some open with the feed's first positions
+        # minutes in, and there the field is spread and a line taken from the
+        # leader would be nowhere near the start.
+        rolled = sorted(math.hypot(xs[1][i] - xs[0][i], ys[1][i] - ys[0][i])
+                        for _, i in grid0 if xs[1][i] != ABSENT)
+        pace = rolled[len(rolled) // 2] if rolled else 1e9   # metres in a frame
+        if 4.0 <= slot <= 14.0 and pace < 15.0:
+            start = line_at(ahead[0] + (slot / 2) * scale / TLAP)
 
     # ── what each car is doing ──────────────────────────────────────────────
     # Three things can take a car out of the race picture: it pits, it stops on
@@ -525,6 +575,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         "track": track,
         # [car, firstFrame, lastFrame, 1 = in the pits, 2 = stopped on track]
         "spans": spans,
+        # Where the field lines up behind, with the track's direction there.
+        # Absent when the replay does not open on a grid.
+        "start": start,
         "drivers": [{
             "n": n,
             "code": (dmap.get(n, {}).get("name_acronym") or str(n)),

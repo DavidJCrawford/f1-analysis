@@ -175,6 +175,48 @@ def finish_check(year: int, rnd: int, season: dict) -> tuple[int, int, str]:
     return displaced, exact, len(want)
 
 
+def grid_check(year: int, rnd: int) -> tuple[int, int, str]:
+    """Check the field lines up behind the start line, the way a grid does.
+
+    Every car should sit within a couple of hundred metres behind it, spaced
+    about eight metres apart, and none of them in front. A car measuring a whole
+    lap behind is really a car just ahead of the line, which is what the finish
+    line gives you if you mistake it for the start line.
+    """
+    man = json.loads((MAN / f"{year}-{rnd}.json").read_text())
+    buf = (BIN / f"{year}-{rnd}.bin").read_bytes()
+    st = man.get("start")
+    if not st:
+        return 0, 0, "no grid — the replay does not open on one"
+
+    track, scale, cars = man["track"], man["scale"], man["cars"]
+    seg, cum, lap = arc_table(track)
+    line = arc_of(track, seg, cum, st["x"], st["y"])
+    pits = {sp[0] for sp in man.get("spans", []) if sp[3] == 1 and sp[1] == 0}
+
+    behind = []
+    for ci in range(cars):
+        if ci in pits:
+            continue
+        x, y = struct.unpack_from("<hh", buf, ci * 4)
+        if x == -32768:
+            continue
+        behind.append(((line - arc_of(track, seg, cum, x, y)) % lap) / scale)
+    if not behind:
+        return 0, 0, ""
+
+    behind.sort()
+    # A grid is about 180 m long. Anything past that is on the far side.
+    LIMIT = 260.0
+    stray = [d for d in behind if d > LIMIT]
+    gaps = [behind[i + 1] - behind[i] for i in range(len(behind) - 1)]
+    med = sorted(gaps)[len(gaps) // 2] if gaps else 0.0
+    note = (f"{behind[0]:.0f}–{behind[-1]:.0f} m behind, {med:.1f} m apart"
+            if not stray else
+            f"{len(stray)} car(s) not behind the line, furthest {max(stray):.0f} m")
+    return len(stray), len(behind), note
+
+
 def main() -> int:
     year = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     season = json.loads((SEASONS / f"{year}.json").read_text())
@@ -204,6 +246,15 @@ def main() -> int:
     # — so the count of cars out of place is reported beside it.
     print(f"\n{ends}/{len(rounds)} rounds finish in the classified order, "
           f"{fin_off} cars out of place in all")
+
+    print("\nthe grid, against the start line")
+    off_grid = 0
+    for rnd in rounds:
+        stray, n, note = grid_check(year, rnd)
+        off_grid += stray
+        mark = "ok  " if stray == 0 else "    "
+        print(f"{mark}r{rnd:<2} {note}")
+    print(f"\n{off_grid} cars are not lined up behind the start line")
 
     print("\nlap counting")
     drifted = 0

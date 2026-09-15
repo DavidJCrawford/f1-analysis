@@ -193,6 +193,7 @@ const drivers = (manifest.drivers ?? []) as
     posOffset: number; lapOffset: number; leadOffset: number;
     drivers: Driver[]; track: number[][];
     spans?: number[][];
+    start?: { x: number; y: number; tx: number; ty: number } | null;
   };
 
   const root = document.querySelector<HTMLElement>('[data-replay]');
@@ -330,11 +331,21 @@ const drivers = (manifest.drivers ?? []) as
     function drawStartLine(unit: number, dpr: number) {
       const tr = man.track;
       if (!tr || tr.length < 6) return;
-      const [x0, y0] = tr[0];
-      const a = tr[3], b = tr[tr.length - 3];
-      let tx = a[0] - b[0], ty = a[1] - b[1];
-      const tl = Math.hypot(tx, ty) || 1;
-      tx /= tl; ty /= tl;
+      // The start line, at the front of the grid — not the finish line the lap
+      // counter runs on, which at most circuits is somewhere else entirely and
+      // would leave the field strung out either side of it. Falls back to the
+      // counting line where a replay does not open on a grid.
+      const st = man.start;
+      let x0: number, y0: number, tx: number, ty: number;
+      if (st) {
+        x0 = st.x; y0 = st.y; tx = st.tx; ty = st.ty;
+      } else {
+        [x0, y0] = tr[0];
+        const a = tr[3], b = tr[tr.length - 3];
+        tx = a[0] - b[0]; ty = a[1] - b[1];
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl; ty /= tl;
+      }
       const nx = -ty, ny = tx;                    // across the track
 
       const cell = 5 * dpr / unit;

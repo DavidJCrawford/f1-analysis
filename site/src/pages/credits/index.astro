@@ -1,0 +1,150 @@
+---
+import Base from '@layouts/Base.astro';
+import { meta, circuits, outline } from '@lib/data';
+import { longDate } from '@lib/format';
+
+const m = meta();
+
+/** Which geometry source each outline actually came from, counted from the
+ *  emitted data rather than listed by hand, so this cannot drift. Only the
+ *  circuits this site covers: the file holds every circuit ever traced. */
+const shown = circuits();
+const geo = new Map<string, number>();
+for (const c of shown) {
+  const o = outline(c.id) as { source?: string } | null;
+  const src = o?.source ?? 'no outline';
+  geo.set(src, (geo.get(src) ?? 0) + 1);
+}
+const used = [...geo].sort((a, b) => b[1] - a[1]);
+
+const SOURCES = [
+  {
+    name: 'F1DB',
+    href: 'https://github.com/f1db/f1db',
+    gives: 'Races, results, championship standings, and the driver, constructor and circuit records behind every page.',
+    licence: 'CC BY 4.0',
+    licenceHref: 'https://creativecommons.org/licenses/by/4.0/',
+  },
+  {
+    name: 'MultiViewer',
+    href: 'https://multiviewer.app',
+    gives: 'Official circuit geometry from the Formula 1 timing feed — centrelines, corner positions and start/finish lines.',
+    licence: 'No published terms',
+    licenceHref: null,
+  },
+  {
+    name: 'OpenF1',
+    href: 'https://openf1.org',
+    gives: 'Timing-feed laps and car positions, which the race replays are built from, and the team colours.',
+    licence: 'CC BY-NC-SA 4.0',
+    licenceHref: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+  },
+  {
+    name: 'TUMFTM/racetrack-database',
+    href: 'https://github.com/TUMFTM/racetrack-database',
+    gives: 'Circuit centrelines where the timing feed has none. Derived from OpenStreetMap and offered onward under ODbL.',
+    licence: 'LGPL-3.0',
+    licenceHref: 'https://www.gnu.org/licenses/lgpl-3.0.html',
+  },
+  {
+    name: 'bacinger/f1-circuits',
+    href: 'https://github.com/bacinger/f1-circuits',
+    gives: 'Circuit outlines where neither of the above covers a track.',
+    licence: 'MIT',
+    licenceHref: 'https://opensource.org/license/mit',
+  },
+  {
+    name: 'OpenStreetMap contributors',
+    href: 'https://www.openstreetmap.org/copyright',
+    gives: 'The survey underneath the TUMFTM centrelines.',
+    licence: 'ODbL',
+    licenceHref: 'https://opendatacommons.org/licenses/odbl/',
+  },
+];
+---
+<Base title="Credits" description="The sources this site is built from, and the terms they are offered under.">
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Colophon</p>
+    <h1 class="headline" style="margin-top:.2em">Credits</h1>
+    <p class="lead measure" style="margin-top:1em">
+      Nothing here is measured by this site. Every figure is counted from data somebody
+      else gathered and published, and this is who.
+    </p>
+
+    <hr class="rule" style="margin-top:2.4rem" />
+
+    <section style="margin-top:2.4rem">
+      <h2 class="title-lg">Sources</h2>
+      <div class="table-scroll" style="margin-top:1rem">
+        <table>
+          <thead>
+            <tr><th>Source</th><th>What it provides</th><th>Terms</th></tr>
+          </thead>
+          <tbody>
+            {SOURCES.map((s) => (
+              <tr>
+                <td><a href={s.href} rel="noopener">{s.name}</a></td>
+                <td class="measure">{s.gives}</td>
+                <td class="muted">
+                  {s.licenceHref
+                    ? <a href={s.licenceHref} rel="noopener license">{s.licence}</a>
+                    : s.licence}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="ui muted measure" style="margin-top:1.2rem">
+        MultiViewer publishes no licence for the circuit data it exposes. It is used here
+        for a personal, non-commercial project and is named rather than passed off.
+      </p>
+    </section>
+
+    <section style="margin-top:3.4rem">
+      <h2 class="title-lg">Where each outline came from</h2>
+      <p class="ui muted measure" style="margin-top:.6rem">
+        Circuit geometry is taken from the best source that covers a given track, so the{' '}
+        {shown.length} circuits on this site do not all share one origin. Counted from the
+        data itself.
+      </p>
+      <div class="table-scroll" style="margin-top:1rem">
+        <table>
+          <thead><tr><th>Source</th><th class="n">Circuits</th></tr></thead>
+          <tbody>
+            {used.map(([name, n]) => (
+              <tr><td>{name}</td><td class="n">{n}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section style="margin-top:3.4rem">
+      <h2 class="title-lg">This build</h2>
+      <dl class="facts" style="margin-top:1rem">
+        <dt>Results current to</dt>
+        <dd class="num">{longDate(m.dataAsOf)}</dd>
+        <dt>F1DB release</dt>
+        <dd class="num">{m.spineRelease}</dd>
+        <dt>Scheduled through</dt>
+        <dd class="num">{longDate(m.scheduledThrough)}</dd>
+      </dl>
+    </section>
+
+    <section style="margin-top:3.4rem">
+      <h2 class="title-lg">Not affiliated</h2>
+      <p class="ui muted measure" style="margin-top:.6rem">
+        Unofficial and unaffiliated. Not associated with Formula 1, the FIA, or any team.
+        F1, FORMULA ONE and related marks are trademarks of Formula One Licensing BV.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: .55em 1.4em; margin: 0; max-width: 34rem; }
+  .facts dt { color: var(--ks-text-mute-deep); font-size: var(--ks-type-ui-size); }
+  .facts dd { margin: 0; }
+  td.measure { max-width: 34rem; }
+</style>

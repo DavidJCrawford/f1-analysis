@@ -122,9 +122,19 @@ const lastWinner = last
       </div>
     )}
   </section>
+
+  {/* The one link to the credits. F1DB is CC BY and the OpenStreetMap-derived
+      geometry is ODbL; both ask to be named wherever the work is published. */}
+  <div class="wrap colophon">
+    <hr class="rule" />
+    <p class="ui muted" style="margin-top:1.1rem">
+      Built from data gathered by others — <a href={u('/credits/')}>sources and terms</a>.
+    </p>
+  </div>
 </Base>
 
 <style>
+  .colophon { padding-bottom: clamp(40px, 5vw, 72px); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: clamp(18px, 3vw, 40px); padding-block: 26px; }
   .three-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(24px, 4vw, 48px); }
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: clamp(26px, 3vw, 44px); }

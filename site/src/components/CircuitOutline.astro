@@ -146,6 +146,10 @@ const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
 
 <style>
   .outline { display: block; width: auto; max-width: 100%; overflow: visible; }
+  /* Only the map that can be pointed at, never the gallery: a finger dragged
+     across this one is following the track, not scrolling the page. The
+     attribute is absent on the small outlines, which must still scroll. */
+  .outline[data-track-map] { touch-action: none; }
   .corner-arc { stroke: var(--f1-corner); transition: stroke var(--ks-quick) var(--ks-ease); }
   .corner-arc.is-active { stroke: var(--ks-kinpaku); }
 

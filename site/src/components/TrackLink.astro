@@ -113,24 +113,58 @@
     // rather than a number of user units, so it survives the map being drawn
     // in a different coordinate space.
     const REACH = map.viewBox.baseVal.width * 0.116;
-    map.addEventListener('pointermove', (e) => {
+    const readMap = (e: PointerEvent) => {
       const p = toLocal(map, e);
       if (!p) return;
       const n = nearest(p.x, p.y);
       if (Math.sqrt(n.d2) > REACH) { clear(); return; }
       show(n.frac, n.x, n.y);
-    });
-    map.addEventListener('pointerleave', clear);
+    };
 
     // And the reverse: pointing at the profile marks the place on the map.
-    chart.addEventListener('pointermove', (e) => {
+    const readChart = (e: PointerEvent) => {
       const p = toLocal(chart, e);
       if (!p) return;
       const frac = (p.x - prof.padx) / (prof.w - prof.padx * 2);
       if (frac < 0 || frac > 1) { clear(); return; }
       const [x, y] = pointAt(frac);
       show(frac, x, y);
-    });
-    chart.addEventListener('pointerleave', clear);
+    };
+
+    /**
+     * A mouse only has to be moved across these; a finger has to hold on, and
+     * the browser would rather read that hold as a scroll. `touch-action: none`
+     * in each component's own styles settles who owns the gesture, and the
+     * element then takes the pointer for its duration so a reading survives a
+     * finger wandering off the thin line it is trying to follow. A mouse is
+     * left alone: hovering already works, and capturing on press would make
+     * every click drag the dot about.
+     */
+    function follow(el: SVGSVGElement, read: (e: PointerEvent) => void) {
+      let held = -1;
+      el.addEventListener('pointermove', read);
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        held = e.pointerId;
+        // Throws if the pointer is already gone. Losing the capture costs the
+        // reading only once the finger leaves the element, so carry on.
+        try { el.setPointerCapture(e.pointerId); } catch { /* not held */ }
+        read(e);
+      });
+      const release = (e: PointerEvent) => {
+        if (held !== e.pointerId) return;
+        held = -1;
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        clear();
+      };
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+      // Leaving only counts when nothing is being held: under capture the
+      // pointer is ours until it lifts, wherever it strays.
+      el.addEventListener('pointerleave', (e) => { if (held !== e.pointerId) clear(); });
+    }
+
+    follow(map, readMap);
+    follow(chart, readChart);
   }
 </script>

@@ -167,6 +167,8 @@ const labelX = labelSeg
   .profile { margin: 0; }
   .chart { display: block; width: 100%; height: auto; margin-top: 14px; overflow: visible; }
 
+  /* As with the map: a drag along the lap is a reading, not a scroll. */
+  .chart { touch-action: none; }
   .ribbon { fill: var(--ks-ink); fill-opacity: 0.1; stroke: var(--ks-ink); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
   .axis   { stroke: var(--ks-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
   /* The chart scales by viewBox, so its units never land on whole device

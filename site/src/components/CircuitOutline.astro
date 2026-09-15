@@ -6,9 +6,11 @@ interface Props {
   outline: Outline; name: string;
   height?: number; stroke?: number; showStart?: boolean;
   corners?: Corner[]; lapLength?: number;
+  /** Where the grid lines up, as a fraction of the lap from the finish line. */
+  startFrac?: number | null;
 }
 const { outline, name, height = 120, stroke = 1.5, showStart = true,
-        corners = [], lapLength } = Astro.props;
+        corners = [], lapLength, startFrac = null } = Astro.props;
 
 const marked = corners.length > 0 && lapLength != null;
 const PAD = 0.06;
@@ -67,16 +69,32 @@ const CHEQUER = showStart && height >= 240;
 // edge. Larger cells, fewer of them, and a frame thick enough to cover a whole
 // pixel instead of sitting as a grey seam between two blurred boundaries.
 const CELL = 5.6, COLS = 7;
-const startFrame = pointAndNormal(outline.points, 0, [cx, cy]);
-const sN = startFrame.n;
-const sT: [number, number] = [-sN[1], sN[0]];
+const FRAME_PAD = 1.4;   // px — a solid pixel, not a sub-pixel seam
 const cell = unit(CELL);
 const halfLen = (cell * COLS) / 2;
-const sOx = px(startFrame.p[0]), sOy = px(startFrame.p[1]);
-const cellQuad = (a0: number, a1: number, b0: number, b1: number) =>
-  [[a0, b0], [a1, b0], [a1, b1], [a0, b1]]
-    .map(([a, b]) => `${(sOx + sN[0] * a + sT[0] * b).toFixed(2)},${(sOy + sN[1] * a + sT[1] * b).toFixed(2)}`)
-    .join(' ');
+
+/** A band squared to the track at a fraction of the lap: where it sits, which
+ *  way the track runs there, and quads measured out from it. */
+function bandAt(frac: number) {
+  const f = pointAndNormal(outline.points, frac, [cx, cy]);
+  const N = f.n;                                 // across the track
+  const T: [number, number] = [-N[1], N[0]];     // along it
+  const ox = px(f.p[0]), oy = px(f.p[1]);
+  const at = (a: number, b: number) =>
+    `${(ox + N[0] * a + T[0] * b).toFixed(2)},${(oy + N[1] * a + T[1] * b).toFixed(2)}`;
+  return {
+    ox, oy, N, T,
+    /** A rectangle: half its width across the track, half its depth along it. */
+    quad: (acrossHalf: number, alongHalf: number) =>
+      [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) =>
+        at(a * acrossHalf, b * alongHalf)).join(' '),
+    cellQuad: (a0: number, a1: number, b0: number, b1: number) =>
+      [at(a0, b0), at(a1, b0), at(a1, b1), at(a0, b1)].join(' '),
+  };
+}
+
+const finishBand = bandAt(0);
+const sOx = finishBand.ox, sOy = finishBand.oy, sN = finishBand.N;
 
 const chequerSquares: string[] = [];
 if (CHEQUER) {
@@ -84,27 +102,31 @@ if (CHEQUER) {
     for (let row = 0; row < 2; row++) {
       if ((col + row) % 2 !== 0) continue;       // the black half is the ground
       const a0 = -halfLen + col * cell;
-      chequerSquares.push(cellQuad(a0, a0 + cell, (row - 1) * cell, row * cell));
+      chequerSquares.push(finishBand.cellQuad(a0, a0 + cell, (row - 1) * cell, row * cell));
     }
   }
 }
+
+/**
+ * The other line. A Formula 1 circuit generally has two: the finish line, where
+ * a lap is timed, and the start line at the front of the grid, and they are
+ * rarely the same place — which is why a first lap is not a full lap. Drawn
+ * only where we know it and where it is far enough away to be its own mark
+ * rather than a thickening of the chequer.
+ */
+const gap = startFrac == null ? 0
+  : Math.min(startFrac % 1, 1 - (startFrac % 1)) * (outline.length || 0);
+const TWO_LINES = CHEQUER && startFrac != null && gap > 25;
+const startBand = TWO_LINES ? bandAt(startFrac!) : null;
+const startBar = startBand?.quad(halfLen, cell * 0.42) ?? null;
+const startEdge = startBand?.quad(halfLen + unit(FRAME_PAD), cell * 0.42 + unit(FRAME_PAD)) ?? null;
 
 
 // The dark squares are painted rather than left as holes: a solid black ground
 // under the white dashes, so the chequer reads the same whatever it sits on.
 // A hairline frame, offset by a little padding, lifts it off the tarmac.
-const FRAME_PAD = 1.4;   // px — a solid pixel, not a sub-pixel seam
-const quad = (alongHalf: number, acrossHalf: number) =>
-  [[1, 1], [1, -1], [-1, -1], [-1, 1]]
-    .map(([a, b]) => [
-      sOx + sN[0] * a * alongHalf + sT[0] * b * acrossHalf,
-      sOy + sN[1] * a * alongHalf + sT[1] * b * acrossHalf,
-    ])
-    .map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`)
-    .join(' ');
-
-const chequerGround = quad(halfLen, cell);
-const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
+const chequerGround = finishBand.quad(halfLen, cell);
+const chequerFrame = finishBand.quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
 ---
 <svg
   class="outline"
@@ -133,12 +155,29 @@ const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
             style={`stroke-width:${stroke}px`} />
   )}
 
+  {TWO_LINES && startBand && (
+    <>
+      <polygon class="chequer-ground" points={startEdge!} />
+      <polygon class="start-bar" points={startBar!} />
+      <text class="line-label" x={startBand.ox + startBand.N[0] * (halfLen + unit(9))}
+            y={startBand.oy + startBand.N[1] * (halfLen + unit(9))}
+            font-size={unit(8)} dominant-baseline="middle"
+            text-anchor={startBand.N[0] < 0 ? 'end' : 'start'}>Start</text>
+    </>
+  )}
+
   {CHEQUER
     ? (
       <>
         <polygon class="chequer-frame" points={chequerFrame} />
         <polygon class="chequer-ground" points={chequerGround} />
         {chequerSquares.map((pts) => <polygon class="chequer" points={pts} />)}
+        {TWO_LINES && (
+          <text class="line-label" x={sOx + sN[0] * (halfLen + unit(9))}
+                y={sOy + sN[1] * (halfLen + unit(9))}
+                font-size={unit(8)} dominant-baseline="middle"
+                text-anchor={sN[0] < 0 ? 'end' : 'start'}>Finish</text>
+        )}
       </>
     )
     : showStart && <circle cx={px(sx)} cy={px(sy)} r={unit(2.9)} fill="var(--ks-kinpaku)" />}
@@ -162,4 +201,13 @@ const chequerFrame = quad(halfLen + unit(FRAME_PAD), cell + unit(FRAME_PAD));
   .chequer-frame { fill: #fff; }
   .chequer-ground { fill: #000; }
   .chequer { fill: #fff; }
+  /* The start line is a plain painted bar; the chequer is the flag that ends a
+     race. Telling them apart by their shape rather than by colour keeps both
+     readable on a dark panel and needs no key. */
+  .start-bar { fill: #fff; }
+  .line-label {
+    fill: var(--ks-instrument-muted);
+    font-family: var(--ks-mono), monospace;
+    text-transform: uppercase; letter-spacing: .14em;
+  }
 </style>

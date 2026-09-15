@@ -1,0 +1,46 @@
+{
+ "catalunya": {
+  "frac": 0.021983,
+  "fromRound": 7
+ },
+ "hungaroring": {
+  "frac": 0.008229,
+  "fromRound": 11
+ },
+ "madring": {
+  "frac": 0.032257,
+  "fromRound": 14
+ },
+ "miami": {
+  "frac": 0.023354,
+  "fromRound": 4
+ },
+ "montreal": {
+  "frac": 0.988694,
+  "fromRound": 5
+ },
+ "monza": {
+  "frac": 0.053759,
+  "fromRound": 13
+ },
+ "silverstone": {
+  "frac": 0.020598,
+  "fromRound": 9
+ },
+ "spa-francorchamps": {
+  "frac": 0.01696,
+  "fromRound": 10
+ },
+ "spielberg": {
+  "frac": 0.026255,
+  "fromRound": 8
+ },
+ "suzuka": {
+  "frac": 0.048335,
+  "fromRound": 3
+ },
+ "zandvoort": {
+  "frac": 0.01061,
+  "fromRound": 12
+ }
+}

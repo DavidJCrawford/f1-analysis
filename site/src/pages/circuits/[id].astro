@@ -7,7 +7,7 @@ import TrackProfile from '@components/TrackProfile.astro';
 import CircuitScatter from '@components/CircuitScatter.astro';
 import TrackLink from '@components/TrackLink.astro';
 import { circuits, circuit, outline, profile, racesAtCircuit, season,
-         currentSeasonYear, seasonCircuits } from '@lib/data';
+         currentSeasonYear, seasonCircuits, startLine } from '@lib/data';
 import { u } from '@lib/url';
 import { km, shortDate, int, sentence, circuitType } from '@lib/format';
 
@@ -40,6 +40,7 @@ const topWinners = [...winners.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5
           outline={o} name={c.name} height={440} stroke={1.75}
           corners={prof?.corners ?? []} lapLength={prof?.length}
           showStart={prof?.startKnown ?? false}
+          startFrac={startLine(c.id)}
         />
       </div>
 

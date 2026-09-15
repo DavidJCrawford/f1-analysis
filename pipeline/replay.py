@@ -445,7 +445,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                         for _, i in grid0 if xs[1][i] != ABSENT)
         pace = rolled[len(rolled) // 2] if rolled else 1e9   # metres in a frame
         if 4.0 <= slot <= 14.0 and pace < 15.0:
-            start = line_at(ahead[0] + (slot / 2) * scale / TLAP)
+            start_frac = (ahead[0] + (slot / 2) * scale / TLAP) % 1.0
+            start = line_at(start_frac)
+            start["frac"] = round(start_frac, 6)
 
     # ── what each car is doing ──────────────────────────────────────────────
     # Three things can take a car out of the race picture: it pits, it stops on
@@ -599,7 +601,7 @@ def main() -> None:
     print(f"{len(done)} completed rounds in {year}")
 
     meetings = api(f"meetings?year={year}", f"meet_{year}")
-    built = {}
+    built, lines = {}, {}
     for r in sorted(done, key=lambda r: r["round"]):
         print(f"  R{r['round']:>2} {r['shortName']}")
         cand = [m for m in meetings if abs(
@@ -615,7 +617,15 @@ def main() -> None:
         if m:
             built[f"{year}-{r['round']}"] = {"frames": m["frames"], "cars": m["cars"],
                                              "bytes": m["bytes"]}
+            # The start line is measured from a grid, so only a race can give it.
+            # Keyed by circuit, because that is where it belongs: it is a painted
+            # line on a track, not a property of one afternoon.
+            if m.get("start"):
+                lines[r["circuitId"]] = {"frac": m["start"]["frac"], "fromRound": r["round"]}
     (OUT_MAN / "index.json").write_text(json.dumps(built, indent=1, sort_keys=True))
+    (ROOT / "site" / "data" / "startlines.json").write_text(
+        json.dumps(lines, indent=1, sort_keys=True) + "\n")
+    print(f"start lines for {len(lines)} circuits")
     tot = sum(v["bytes"] for v in built.values())
     print(f"\n{len(built)} replays, {tot/1024/1024:.1f} MB total")
 

@@ -328,29 +328,23 @@ const drivers = (manifest.drivers ?? []) as
      * marker goes there, squared to the local tangent. Sizes divide by `unit`
      * so the band stays a constant size on screen as the camera zooms.
      */
-    function drawStartLine(unit: number, dpr: number) {
-      const tr = man.track;
-      if (!tr || tr.length < 6) return;
-      // The start line, at the front of the grid — not the finish line the lap
-      // counter runs on, which at most circuits is somewhere else entirely and
-      // would leave the field strung out either side of it. Falls back to the
-      // counting line where a replay does not open on a grid.
-      const st = man.start;
-      let x0: number, y0: number, tx: number, ty: number;
-      if (st) {
-        x0 = st.x; y0 = st.y; tx = st.tx; ty = st.ty;
-      } else {
-        [x0, y0] = tr[0];
-        const a = tr[3], b = tr[tr.length - 3];
-        tx = a[0] - b[0]; ty = a[1] - b[1];
-        const tl = Math.hypot(tx, ty) || 1;
-        tx /= tl; ty /= tl;
-      }
+    /**
+     * The two lines. A Formula 1 circuit generally has both: the finish line,
+     * where a lap is timed, and the start line at the front of the grid, and
+     * they are rarely the same place — which is why a first lap is not a full
+     * lap. The chequer is the finish, because the chequer is the flag that ends
+     * a race; the start is a plain painted bar, the way it is on the tarmac.
+     * Shapes rather than colours, so neither needs a key to read.
+     */
+    function drawBand(
+      x0: number, y0: number, tx: number, ty: number,
+      unit: number, dpr: number, kind: 'finish' | 'start',
+    ) {
       const nx = -ty, ny = tx;                    // across the track
-
       const cell = 5 * dpr / unit;
-      const COLS = 6, ROWS = 2;
+      const COLS = 6;
       const half = (cell * COLS) / 2;
+      const depth = kind === 'finish' ? cell : cell * 0.42;
 
       const quad = (a0: number, a1: number, b0: number, b1: number) => {
         ctx.beginPath();
@@ -363,18 +357,48 @@ const drivers = (manifest.drivers ?? []) as
       };
 
       const pad = cell * 0.28;
-      ctx.fillStyle = '#fff';
-      quad(-half - pad, half + pad, -cell - pad, cell + pad);
       ctx.fillStyle = '#000';
-      quad(-half, half, -cell, cell);
-      ctx.fillStyle = '#fff';
-      for (let c = 0; c < COLS; c++) {
-        for (let r = 0; r < ROWS; r++) {
-          if ((c + r) % 2 !== 0) continue;
-          const a0 = -half + c * cell;
-          quad(a0, a0 + cell, (r - 1) * cell, r * cell);
+      quad(-half - pad, half + pad, -depth - pad, depth + pad);
+      if (kind === 'start') {
+        ctx.fillStyle = '#fff';
+        quad(-half, half, -depth, depth);
+      } else {
+        ctx.fillStyle = '#fff';
+        quad(-half - pad, half + pad, -depth - pad, depth + pad);
+        ctx.fillStyle = '#000';
+        quad(-half, half, -depth, depth);
+        ctx.fillStyle = '#fff';
+        for (let c = 0; c < COLS; c++) {
+          for (let r = 0; r < 2; r++) {
+            if ((c + r) % 2 !== 0) continue;
+            const a0 = -half + c * cell;
+            quad(a0, a0 + cell, (r - 1) * cell, r * cell);
+          }
         }
       }
+
+      // Named only when both are drawn, because only then is there a question.
+      if (!man.start) return;
+      ctx.save();
+      ctx.translate(x0 + nx * (half + cell * 1.5), y0 + ny * (half + cell * 1.5));
+      ctx.scale(1 / unit, -1 / unit);
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.font = `500 ${8 * dpr}px ui-monospace, monospace`;
+      ctx.textAlign = nx < 0 ? 'right' : 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(kind === 'finish' ? 'FINISH' : 'START', 0, 0);
+      ctx.restore();
+    }
+
+    function drawLines(unit: number, dpr: number) {
+      const tr = man.track;
+      if (!tr || tr.length < 6) return;
+      const a = tr[3], b = tr[tr.length - 3];
+      let tx = a[0] - b[0], ty = a[1] - b[1];
+      const tl = Math.hypot(tx, ty) || 1;
+      drawBand(tr[0][0], tr[0][1], tx / tl, ty / tl, unit, dpr, 'finish');
+      const st = man.start;
+      if (st) drawBand(st.x, st.y, st.tx, st.ty, unit, dpr, 'start');
     }
 
     function paint() {
@@ -411,7 +435,7 @@ const drivers = (manifest.drivers ?? []) as
         ctx.lineWidth = 2 / unit;
         ctx.strokeStyle = 'rgba(255,255,255,.32)';
         ctx.stroke();
-        drawStartLine(unit, dpr);
+        drawLines(unit, dpr);
       }
 
       // Back of the field first, so leaders sit on top.

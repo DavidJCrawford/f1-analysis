@@ -120,6 +120,12 @@ export const driverById = (id: string) => drivers().find((d) => d.id === id) ?? 
 export const constructorDrivers = (id: string) =>
   drivers().filter((d) => d.constructorId === id);
 
+/** Where the grid lines up, as a fraction of the lap from the finish line.
+ *  Measured from a race's own grid, so only circuits that have held one this
+ *  season have it — see pipeline/replay.py. */
+export const startLine = (circuitId: string): number | null =>
+  (loadMaybe<Record<string, { frac: number }>>('startlines.json') ?? {})[circuitId]?.frac ?? null;
+
 /** The team's own colour, from the timing feed — see pipeline/colours.py. */
 export const teamColour = (id: string): string | null =>
   (loadMaybe<Record<string, string>>('colours.json') ?? {})[id] ?? null;

@@ -116,7 +116,18 @@ if (CHEQUER) {
  */
 const gap = startFrac == null ? 0
   : Math.min(startFrac % 1, 1 - (startFrac % 1)) * (outline.length || 0);
-const TWO_LINES = CHEQUER && startFrac != null && gap > 25;
+/**
+ * Two marks only where the two lines are genuinely apart. A few circuits —
+ * Melbourne, Monaco and Montreal among them — paint one line and use it for
+ * both, and several more are closer together than this can be measured:
+ * checking where the lap counter actually rolls over, across a thousand
+ * crossings a circuit, puts it anywhere from 11 m before the centreline's own
+ * start to 28 m after it. So a separation under about fifty metres is not
+ * distinguishable from none, and drawing two marks there would be claiming
+ * more than we know.
+ */
+const APART_M = 50;
+const TWO_LINES = CHEQUER && startFrac != null && gap > APART_M;
 const startBand = TWO_LINES ? bandAt(startFrac!) : null;
 const startBar = startBand?.quad(halfLen, cell * 0.42) ?? null;
 const startEdge = startBand?.quad(halfLen + unit(FRAME_PAD), cell * 0.42 + unit(FRAME_PAD)) ?? null;

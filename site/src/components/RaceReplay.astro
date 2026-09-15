@@ -193,7 +193,7 @@ const drivers = (manifest.drivers ?? []) as
     posOffset: number; lapOffset: number; leadOffset: number;
     drivers: Driver[]; track: number[][];
     spans?: number[][];
-    start?: { x: number; y: number; tx: number; ty: number } | null;
+    start?: { x: number; y: number; tx: number; ty: number; frac?: number } | null;
   };
 
   const root = document.querySelector<HTMLElement>('[data-replay]');
@@ -378,7 +378,7 @@ const drivers = (manifest.drivers ?? []) as
       }
 
       // Named only when both are drawn, because only then is there a question.
-      if (!man.start) return;
+      if (!twoLines()) return;
       ctx.save();
       ctx.translate(x0 + nx * (half + cell * 1.5), y0 + ny * (half + cell * 1.5));
       ctx.scale(1 / unit, -1 / unit);
@@ -390,6 +390,18 @@ const drivers = (manifest.drivers ?? []) as
       ctx.restore();
     }
 
+    /** Metres round the lap, for judging whether the two lines are apart. */
+    let lapMetres = 0;
+    function trackLength() {
+      if (lapMetres || !man.track) return lapMetres;
+      let d = 0;
+      for (let i = 0; i < man.track.length; i++) {
+        const a = man.track[i], b = man.track[(i + 1) % man.track.length];
+        d += Math.hypot(b[0] - a[0], b[1] - a[1]);
+      }
+      return (lapMetres = d / man.scale);
+    }
+
     function drawLines(unit: number, dpr: number) {
       const tr = man.track;
       if (!tr || tr.length < 6) return;
@@ -397,8 +409,19 @@ const drivers = (manifest.drivers ?? []) as
       let tx = a[0] - b[0], ty = a[1] - b[1];
       const tl = Math.hypot(tx, ty) || 1;
       drawBand(tr[0][0], tr[0][1], tx / tl, ty / tl, unit, dpr, 'finish');
+      if (twoLines()) {
+        const st = man.start!;
+        drawBand(st.x, st.y, st.tx, st.ty, unit, dpr, 'start');
+      }
+    }
+
+    /** Some circuits paint one line and start and finish on it, and several
+     *  more are closer together than we can measure — see CircuitOutline. */
+    function twoLines() {
       const st = man.start;
-      if (st) drawBand(st.x, st.y, st.tx, st.ty, unit, dpr, 'start');
+      if (!st || st.frac == null) return false;
+      const f = ((st.frac % 1) + 1) % 1;
+      return Math.min(f, 1 - f) * trackLength() > 50;
     }
 
     function paint() {

@@ -174,6 +174,12 @@ const drivers = (manifest.drivers ?? []) as
   }
   .strip .code { font-size: 11px; letter-spacing: .07em; color: var(--ks-instrument-muted); }
   .strip .down { font-size: 9.5px; color: var(--ks-instrument-muted); font-family: var(--ks-mono), monospace; }
+  /* Out of the race: the row fades and the label says why, so the strip reads
+     as the running order with two cars set aside rather than a list of equals. */
+  .strip button[data-state='pit'],
+  .strip button[data-state='out'] { opacity: .55; }
+  .strip button[data-state='pit'] .down { color: var(--ks-kinpaku); letter-spacing: .08em; }
+  .strip button[data-state='out'] .down { color: var(--ks-instrument-text); letter-spacing: .08em; }
 
   @media (prefers-reduced-motion: reduce) {
     .play:hover, .strip button:hover { transform: none; }
@@ -184,7 +190,9 @@ const drivers = (manifest.drivers ?? []) as
   type Driver = { n: number; code: string; name: string; team: string; colour: string };
   type Manifest = {
     frames: number; cars: number; step: number; scale: number;
-    posOffset: number; lapOffset: number; drivers: Driver[]; track: number[][];
+    posOffset: number; lapOffset: number; leadOffset: number;
+    drivers: Driver[]; track: number[][];
+    spans?: number[][];
   };
 
   const root = document.querySelector<HTMLElement>('[data-replay]');
@@ -205,7 +213,8 @@ const drivers = (manifest.drivers ?? []) as
     const N = man.cars;
     let xy: Int16Array | null = null;
     let pos: Uint8Array | null = null;
-    let lap: Uint8Array | null = null;
+    let down: Uint8Array | null = null;     // laps behind the leader, per car
+    let lead: Uint8Array | null = null;     // the lap the race is on
 
     let frame = 0, playing = false, dir = 1, zoom = 4.5, focus = -1;
     // The camera eases toward whoever it is following rather than being pinned
@@ -220,7 +229,8 @@ const drivers = (manifest.drivers ?? []) as
       const buf = await (await fetch(binUrl)).arrayBuffer();
       xy = new Int16Array(buf, 0, man.frames * N * 2);
       pos = new Uint8Array(buf, man.posOffset, man.frames * N);
-      lap = new Uint8Array(buf, man.lapOffset, man.frames * N);
+      down = new Uint8Array(buf, man.lapOffset, man.frames * N);
+      lead = new Uint8Array(buf, man.leadOffset, man.frames);
       loading.hidden = true;
       buildStrip();
     }
@@ -243,10 +253,12 @@ const drivers = (manifest.drivers ?? []) as
       const i = Math.min(man.frames - 1, Math.max(0, Math.round(f)));
       return pos ? Array.from(pos.subarray(i * N, i * N + N)) : [];
     };
-    const lapOf = (f: number, car: number) => {
-      const i = Math.min(man.frames - 1, Math.max(0, Math.round(f)));
-      return lap ? lap[i * N + car] : 0;
-    };
+    const frameAt = (f: number) => Math.min(man.frames - 1, Math.max(0, Math.round(f)));
+    /** How many laps behind the leader, measured in distance round the circuit
+     *  rather than by lap number: mid-race most of the field reads a lap lower
+     *  on the counter simply for not having reached the line yet. */
+    const downOf = (f: number, car: number) => (down ? down[frameAt(f) * N + car] : 0);
+    const lapOf = (f: number) => (lead ? lead[frameAt(f)] : 0);
 
     // ── strip ───────────────────────────────────────────────────────────────
     const chips = [...strip.querySelectorAll<HTMLButtonElement>('button[data-car]')];
@@ -255,17 +267,29 @@ const drivers = (manifest.drivers ?? []) as
         b.addEventListener('click', () => { focus = focus === i ? -1 : i; paint(); }));
     }
 
+    // What each car is doing, as spans rather than a value per frame: a car is
+    // racing almost all the time, so this is a handful of entries each.
+    const RACING = 0, PIT = 1, STOPPED = 2;
+    const spans: number[][][] = man.drivers.map(() => []);
+    for (const [car, a, b, kind] of (man.spans ?? []) as number[][]) {
+      if (spans[car]) spans[car].push([a, b, kind]);
+    }
+    function stateAt(f: number, car: number) {
+      for (const [a, b, kind] of spans[car] ?? []) if (f >= a && f <= b) return kind;
+      return RACING;
+    }
+
     let stripKey = '';
     function updateStrip(f: number) {
       const ord = orderAt(f);
       if (!ord.length) return;
-      const leadLap = lapOf(f, ord[0]);
       // Only touch the strip when something in it actually changed. Rewriting
       // and reordering twenty-two rows of a scrolling flex list on every
       // animation frame is what made the field shimmer the moment the cars
       // moved; reading the laps to compare is a few typed-array lookups.
-      const laps = ord.map((car) => lapOf(f, car));
-      const key = `${focus}|${ord.join(',')}|${laps.join(',')}`;
+      const laps = ord.map((car) => downOf(f, car));
+      const states = ord.map((car) => stateAt(f, car));
+      const key = `${focus}|${ord.join(',')}|${laps.join(',')}|${states.join(',')}`;
       if (key === stripKey) return;
       stripKey = key;
 
@@ -275,8 +299,11 @@ const drivers = (manifest.drivers ?? []) as
         const b = chips[car];
         if (!b) return;
         b.querySelector('.pos')!.textContent = String(p + 1);
-        const down = leadLap - laps[p];
-        b.querySelector('.down')!.textContent = down > 0 ? `+${down}L` : '';
+        b.querySelector('.down')!.textContent =
+          states[p] === PIT ? 'PIT'
+          : states[p] === STOPPED ? 'OUT'
+          : laps[p] > 0 ? `+${laps[p]}L` : '';
+        b.dataset.state = states[p] === PIT ? 'pit' : states[p] === STOPPED ? 'out' : '';
         b.setAttribute('aria-pressed', String(focus === car));
         frag.appendChild(b.parentElement!);
       });
@@ -382,11 +409,24 @@ const drivers = (manifest.drivers ?? []) as
         const c = carAt(frame, car);
         if (!c) continue;
         const d = man.drivers[car];
+        const st = stateAt(frame, car);
         const r = (car === lead ? 13 : 11) * dpr / unit;
+        // A car out of the race reads as an outline rather than a disc: it is
+        // still where the timing feed puts it, but it is no longer racing, and
+        // a hollow marker says so without needing a key to read it.
+        ctx.globalAlpha = st === RACING ? 1 : 0.55;
         ctx.beginPath();
         ctx.arc(c[0], c[1], r, 0, Math.PI * 2);
-        ctx.fillStyle = d.colour;
-        ctx.fill();
+        if (st === RACING) {
+          ctx.fillStyle = d.colour;
+          ctx.fill();
+        } else {
+          ctx.fillStyle = 'rgba(12,12,12,.92)';
+          ctx.fill();
+          ctx.lineWidth = 2.5 * dpr / unit;
+          ctx.strokeStyle = d.colour;
+          ctx.stroke();
+        }
         if (car === lead) {
           ctx.lineWidth = 2.5 * dpr / unit;
           ctx.strokeStyle = '#fff';
@@ -395,7 +435,7 @@ const drivers = (manifest.drivers ?? []) as
         ctx.save();
         ctx.translate(c[0], c[1]);
         ctx.scale(1 / unit, -1 / unit);
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = st === RACING ? '#fff' : d.colour;
         ctx.font = `700 ${10 * dpr}px ui-monospace, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -403,6 +443,7 @@ const drivers = (manifest.drivers ?? []) as
         ctx.shadowBlur = 3 * dpr;
         ctx.fillText(String(d.n), 0, 0.5 * dpr);
         ctx.restore();
+        ctx.globalAlpha = 1;
       }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -410,8 +451,7 @@ const drivers = (manifest.drivers ?? []) as
       const t = frame * man.step;
       const mm = String(Math.floor(t / 60)).padStart(2, '0');
       const ss = String(Math.floor(t % 60)).padStart(2, '0');
-      const leadLap = lapOf(frame, ord[0] ?? 0);
-      readout.textContent = `Lap ${leadLap} · ${mm}:${ss}`;
+      readout.textContent = `Lap ${lapOf(frame)} · ${mm}:${ss}`;
       scrub.value = String(Math.round((frame / (man.frames - 1)) * 1000));
     }
 

@@ -161,6 +161,19 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         if len(here) >= 8 and len(set(here)) >= max(8, int(len(here) * 0.8)):
             skip = f
             break
+    # And the same at the other end: at least one round's position feed stops
+    # long before the lap data does, which left the replay running for over an
+    # hour with an empty track. End it where the cars do.
+    tail = frames
+    need = max(2, len(nums) // 2)
+    while tail > skip + 1 and sum(1 for ci in range(len(nums))
+                                 if xs[tail - 1][ci] != ABSENT) < need:
+        tail -= 1
+    if tail < frames:
+        print(f"    no positions after {tail * STEP / 60:.0f} min; ending there")
+        xs, ys = xs[:tail], ys[:tail]
+        frames = tail
+
     if skip:
         xs, ys = xs[skip:], ys[skip:]
         frames -= skip
@@ -204,29 +217,55 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         TLAP = tcum[-1] or 1.0
         COARSE = max(1, len(order_track) // 120)
 
-        def arc_of(x, y):
-            """Fraction of a lap at the nearest centreline point, and how far off
-            it the car is. The second number separates the pit lane from the
-            track: the racing line never strays far from the centreline, so a
-            large offset means the car is not racing."""
-            bi, bd = 0, float("inf")
-            for i in range(0, len(order_track), COARSE):
-                dx = order_track[i][0] - x; dy = order_track[i][1] - y
+        # A car cannot move far between frames, so where it was last time is a
+        # strong hint about where it is now. Without that hint the nearest point
+        # on the centreline is the answer, and at a circuit that runs back
+        # alongside itself — Monaco above all — the nearest point flips to the
+        # neighbouring stretch of track and the lap count falls apart.
+        REACH = 0.5 * 120.0 * scale     # a frame at 430 km/h, with room to spare
+
+        def _leg(j, x, y):
+            ax, ay = order_track[j]
+            bx, by = order_track[(j + 1) % len(order_track)]
+            vx, vy = bx - ax, by - ay
+            l2 = vx * vx + vy * vy
+            u = 0.0 if not l2 else max(0.0, min(1.0, ((x - ax) * vx + (y - ay) * vy) / l2))
+            qx, qy = ax + vx * u, ay + vy * u
+            return (x - qx) ** 2 + (y - qy) ** 2, (tcum[j] + tseg[j] * u) / TLAP
+
+        def _sweep(x, y, lo, hi):
+            """Closest approach over a run of legs, coarse then refined."""
+            bi, bd = lo, float("inf")
+            for i in range(lo, hi + 1, COARSE):
+                j = i % len(order_track)
+                dx = order_track[j][0] - x; dy = order_track[j][1] - y
                 d = dx * dx + dy * dy
                 if d < bd: bd, bi = d, i
             best = (float("inf"), 0.0)
             for i in range(bi - COARSE, bi + COARSE + 1):
-                j = i % len(order_track)
-                ax, ay = order_track[j]
-                bx, by = order_track[(j + 1) % len(order_track)]
-                vx, vy = bx - ax, by - ay
-                l2 = vx * vx + vy * vy
-                u = 0.0 if not l2 else max(0.0, min(1.0, ((x - ax) * vx + (y - ay) * vy) / l2))
-                qx, qy = ax + vx * u, ay + vy * u
-                d2 = (x - qx) ** 2 + (y - qy) ** 2
+                d2, frac = _leg(i % len(order_track), x, y)
                 if d2 < best[0]:
-                    best = (d2, (tcum[j] + tseg[j] * u) / TLAP)
-            return best[1], math.sqrt(best[0]) / scale
+                    best = (d2, frac)
+            return best
+
+        def arc_of(x, y, hint=None):
+            """Fraction of a lap at the nearest centreline point, and how far off
+            it the car is. The second number separates the pit lane from the
+            track: the racing line never strays far from the centreline, so a
+            large offset means the car is not racing."""
+            whole = _sweep(x, y, 0, len(order_track) - 1)
+            if hint is None:
+                return whole[1], math.sqrt(whole[0]) / scale
+            # Search only the stretch the car could plausibly have reached. Take
+            # the unrestricted answer instead when it is far better, which is how
+            # a car that has been off the feed for a while finds itself again.
+            at = hint * TLAP
+            lo = int((at - REACH) / TLAP * len(order_track))
+            hi = int((at + REACH) / TLAP * len(order_track))
+            near = _sweep(x, y, lo, hi)
+            if whole[0] * 9.0 < near[0]:
+                return whole[1], math.sqrt(whole[0]) / scale
+            return near[1], math.sqrt(near[0]) / scale
 
     # Progress: completed laps plus the fraction through the current one.
     by_driver: dict[int, list] = {n: [] for n in nums}
@@ -239,7 +278,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         by_driver[n].sort()
 
     order = [[0] * len(nums) for _ in range(frames)]
-    lapno = [[0] * len(nums) for _ in range(frames)]
+    downs = [[0] * len(nums) for _ in range(frames)]    # laps behind the leader
+    leadlap = [0] * frames                              # the lap the race is on
+    offs = [[0.0] * len(nums) for _ in range(frames)]   # metres off the centreline
     # Laps are counted from the geometry itself, not read off the feed: the two
     # disagree for a frame or two either side of the line, and a disagreement
     # there is a whole-lap error in the running order. Seeded from the feed once,
@@ -257,6 +298,15 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
     # then on it is ordered like everyone else.
     PIT_M = 6.0
     in_pit = [False] * len(nums)
+    # Counting wraps only works while the positions are continuous. Some rounds
+    # arrive with the feed full of holes — nearly two hundred jumps per car at
+    # one of them — and a lap missed across a hole is a lap lost for good, by a
+    # different amount for each car, which scrambles the order by the end. So
+    # after any jump the count is re-anchored to the lap number from the feed,
+    # which cannot drift. Only in the middle of a lap: either side of the line
+    # the feed's number and the car's position disagree about which lap it is.
+    prev_xy: list[tuple[float, float] | None] = [None] * len(nums)
+    LEAP = 3.0 * 120.0 * STEP * scale  # well beyond any car's travel in a frame
     for f in range(frames):
         tsec = (f + skip) * STEP       # laps are timed from t0, not from frame 0
         prog = []
@@ -268,24 +318,32 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                     ln = num
                 else:
                     break
-            lapno[f][ci] = min(255, ln)
 
             gx, gy = xs[f][ci], ys[f][ci]
             if order_track and gx != ABSENT:
-                frac, off = arc_of((gx - cx) * scale, (gy - cy) * scale)
+                frac, off = arc_of((gx - cx) * scale, (gy - cy) * scale, prev_frac[ci])
+                offs[f][ci] = off
                 if f == 0:
                     in_pit[ci] = off > PIT_M
                 elif in_pit[ci] and off <= PIT_M:
                     in_pit[ci] = False
                 pit[ci] = in_pit[ci]
+
+                here = ((gx - cx) * scale, (gy - cy) * scale)
+                was = prev_xy[ci]
+                leapt = was is None or math.hypot(here[0] - was[0], here[1] - was[1]) > LEAP
+                prev_xy[ci] = here
+
                 pv = prev_frac[ci]
                 if pv is None:
                     # The grid straddles the timing line, so on the opening
                     # frame a car just short of it is a lap behind one past.
                     glap[ci] = (ln - 1) - (1 if f == 0 and frac > 0.5 else 0)
-                elif pv > 0.7 and frac < 0.3:
+                elif leapt and ln >= 1 and 0.15 < frac < 0.85 and glap[ci] != ln - 1:
+                    glap[ci] = ln - 1
+                elif not leapt and pv > 0.7 and frac < 0.3:
                     glap[ci] += 1
-                elif pv < 0.3 and frac > 0.7:
+                elif not leapt and pv < 0.3 and frac > 0.7:
                     glap[ci] -= 1
                 prev_frac[ci] = frac
                 p = glap[ci] + frac
@@ -303,9 +361,117 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                 if pit[i]:
                     prog[i] = (back - 0.01 * i, prog[i][1])
 
+        # Being a lap down is a matter of distance, not of lap numbers. Mid-race
+        # every car that has not yet reached the line this time round reads one
+        # lower on the counter than the leader, which is most of the field and
+        # none of them lapped. So the gap is taken from progress round the
+        # circuit, and a car is a lap down only once the leader is genuinely a
+        # full lap further on.
+        gp = [q[0] for q in prog]
+        ahead = max(gp)
+        leadlap[f] = min(255, max(0, int(math.floor(ahead)) + 1))
+        for ci in range(len(nums)):
+            downs[f][ci] = min(255, max(0, int(math.floor(ahead - gp[ci]))))
+
         ranked = sorted(range(len(nums)), key=lambda i: prog[i], reverse=True)
         for pos, ci in enumerate(ranked):
             order[f][pos] = ci
+
+    # ── what each car is doing ──────────────────────────────────────────────
+    # Three things can take a car out of the race picture: it pits, it stops on
+    # track, or it is gone from the feed. Left unmarked they all read as a car
+    # drifting oddly, so each one is recorded as a span and drawn for what it is.
+    #
+    # Both come from the record rather than from the shape of the data. The
+    # position feed stalls often enough — the same coordinate repeated for
+    # several seconds, then a jump — that a car reads as stationary when it is
+    # at full speed, so anything inferred from apparent speed is mostly noise.
+    # The feed knows when a stop happened and the results know who retired; in
+    # each case geometry is used only to pin down the extent.
+    ON_TRACK_M = 4.0        # racing samples sit within a metre of the line
+    PARKED_M = 15.0         # a car that has not moved this far has not moved
+    PIT, STOPPED = 1, 2
+
+    state = [[0] * len(nums) for _ in range(frames)]
+
+    def mark(ci: int, a: int, b: int, kind: int) -> None:
+        for f in range(max(0, a), min(frames, b + 1)):
+            state[f][ci] = kind
+
+    def grow(ci: int, f: int) -> tuple[int, int]:
+        """The span around frame f for which the car is off the racing line."""
+        a = b = min(max(f, 0), frames - 1)
+        while a > 0 and offs[a - 1][ci] > ON_TRACK_M:
+            a -= 1
+        while b < frames - 1 and offs[b + 1][ci] > ON_TRACK_M:
+            b += 1
+        return a, b
+
+    # Who failed to finish, from the classification rather than the telemetry.
+    retired: set[int] = set()
+    try:
+        season = json.loads((ROOT / "site" / "data" / "seasons" / f"{year}.json").read_text())
+        for r in season.get("results", {}).get(str(rnd), []):
+            if r.get("reasonRetired") and str(r.get("no", "")).isdigit():
+                retired.add(int(r["no"]))
+    except FileNotFoundError:
+        pass
+
+    if order_track:
+        idx = {n: ci for ci, n in enumerate(nums)}
+        for r in api(f"pit?session_key={session_key}", f"pit_{session_key}"):
+            ci = idx.get(r.get("driver_number"))
+            if ci is None or not r.get("date"):
+                continue
+            t = (dt.datetime.fromisoformat(r["date"]) - t0).total_seconds()
+            f = int(round(t / STEP)) - skip
+            if not (0 <= f < frames):
+                continue
+            # The feed's instant can land on a sample that is briefly back near
+            # the line, so search a little either way for the off-line stretch.
+            for probe in (f, f - 4, f + 4, f - 10, f + 10):
+                if 0 <= probe < frames and offs[probe][ci] > ON_TRACK_M:
+                    mark(ci, *grow(ci, probe), PIT)
+                    break
+
+        # A car released from the pit lane after the start never appears in the
+        # pit feed, because it never made a stop.
+        for ci in range(len(nums)):
+            if offs[0][ci] > ON_TRACK_M and xs[0][ci] != ABSENT:
+                mark(ci, *grow(ci, 0), PIT)
+
+        # Retirements. The results say who did not make the end and why; the
+        # positions say where the car came to rest. Marked through to the end of
+        # the race, so a car that is towed away still reads as out of it rather
+        # than quietly holding its last place in the order.
+        for n in retired:
+            ci = idx.get(n)
+            if ci is None:
+                continue
+            last = next((f for f in range(frames - 1, -1, -1) if xs[f][ci] != ABSENT), None)
+            if last is None:
+                continue
+            a = last
+            while a > 0 and xs[a - 1][ci] != ABSENT and \
+                    math.hypot(xs[a - 1][ci] - xs[last][ci], ys[a - 1][ci] - ys[last][ci]) < PARKED_M:
+                a -= 1
+            mark(ci, a, frames - 1, STOPPED)
+
+    # Spans, not a byte per car per frame: a car is racing almost all the time,
+    # so the whole season's worth of this fits in a few kilobytes of manifest.
+    spans: list[list[int]] = []
+    for ci in range(len(nums)):
+        f = 0
+        while f < frames:
+            k = state[f][ci]
+            if not k:
+                f += 1
+                continue
+            a = f
+            while f + 1 < frames and state[f + 1][ci] == k:
+                f += 1
+            spans.append([ci, a, f, k])
+            f += 1
 
     OUT_BIN.mkdir(parents=True, exist_ok=True)
     OUT_MAN.mkdir(parents=True, exist_ok=True)
@@ -321,7 +487,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         buf += bytes(order[f])
     lap_off = len(buf)
     for f in range(frames):
-        buf += bytes(lapno[f])
+        buf += bytes(downs[f])
+    lead_off = len(buf)
+    buf += bytes(leadlap)
 
     name = f"{year}-{rnd}"
     (OUT_BIN / f"{name}.bin").write_bytes(buf)
@@ -332,8 +500,11 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         "year": year, "round": rnd, "circuitId": circuit_id, "sessionKey": session_key,
         "step": STEP, "frames": frames, "cars": len(nums),
         "scale": round(scale, 6), "cx": round(cx, 2), "cy": round(cy, 2),
-        "posOffset": pos_off, "lapOffset": lap_off, "bytes": len(buf),
+        "posOffset": pos_off, "lapOffset": lap_off, "leadOffset": lead_off,
+        "bytes": len(buf),
         "track": track,
+        # [car, firstFrame, lastFrame, 1 = in the pits, 2 = stopped on track]
+        "spans": spans,
         "drivers": [{
             "n": n,
             "code": (dmap.get(n, {}).get("name_acronym") or str(n)),

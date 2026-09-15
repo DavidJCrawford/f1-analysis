@@ -100,20 +100,121 @@ def check(year: int, rnd: int, season: dict) -> tuple[int, int, int, str]:
     return displaced, exact, len(want), span
 
 
+def laps_check(year: int, rnd: int, season: dict) -> tuple[int, int, str]:
+    """Check the lap counting, which is done by watching the arc fraction wrap
+    rather than by reading the feed so that it agrees with the running order at
+    the line. The failure mode is drift — one wrap missed across a gap in the
+    positions and a car is a lap out for the rest of the race — and drift shows
+    up as a car's deficit shrinking when it has not overtaken anybody.
+
+    Note that what is stored is distance behind the leader, not the difference
+    of two lap counters. Those are not the same thing and the classification
+    uses the other one: a car that stops halfway round has completed one lap
+    fewer than the leader but is only half a lap behind. So the leader's own
+    count is checked against the winner's, and every other car is checked for
+    going backwards.
+    """
+    man = json.loads((MAN / f"{year}-{rnd}.json").read_text())
+    buf = (BIN / f"{year}-{rnd}.bin").read_bytes()
+    cars, lap_off, frames = man["cars"], man["lapOffset"], man["frames"]
+    lead_off, pos_off = man["leadOffset"], man["posOffset"]
+    want = max((r["laps"] for r in season["results"][str(rnd)]
+                if r.get("laps") is not None), default=0)
+
+    # The leader's count at the flag, against the winner's classified laps.
+    flag = frames - 1
+    for f in range(frames):
+        if buf[lead_off + f] > want:
+            flag = max(0, f - 1)
+            break
+    got = buf[lead_off + flag]
+    bad = [] if got == want else [f"race reached lap {got}, winner classified on {want}"]
+
+    # No car may fall further behind than the race is long. Deficits shrinking
+    # is not a fault — a lapped car is inside the lap again the moment the
+    # leader pits — but a deficit larger than the race means a miscount.
+    for ci in range(cars):
+        d = max(buf[lap_off + f * cars + ci] for f in range(0, flag + 1, 4))
+        if d > want:
+            bad.append(f"{man['drivers'][ci]['code']} reads {d} laps down in a {want}-lap race")
+    return len(bad), cars, bad[0] if bad else ""
+
+
+def finish_check(year: int, rnd: int, season: dict) -> tuple[int, int, str]:
+    """Score the closing order against the classified result.
+
+    The grid check says the replay starts in the right place; this says it ends
+    there too, which between them covers everything that happens in between.
+    Only the cars that were running at the flag are scored: a car that retired
+    is classified behind cars it was ahead of when it stopped, and the replay
+    has no way to know that and no business guessing.
+    """
+    man = json.loads((MAN / f"{year}-{rnd}.json").read_text())
+    buf = (BIN / f"{year}-{rnd}.bin").read_bytes()
+    cars, pos_off, frames = man["cars"], man["posOffset"], man["frames"]
+    lead_off = man["leadOffset"]
+    rows = season["results"][str(rnd)]
+    want_laps = max((r["laps"] for r in rows if r.get("laps") is not None), default=0)
+    finished = {int(r["no"]): r["posNum"] for r in rows
+                if r.get("posNum") and not r.get("reasonRetired") and str(r.get("no", "")).isdigit()}
+
+    # The moment the leader starts its last counted lap is the moment it takes
+    # the flag. Anchoring on the classified lap total instead would fall back to
+    # the end of the recording wherever the two disagree, and by then the field
+    # is on its slow-down lap in no particular order.
+    top = max(buf[lead_off + f] for f in range(frames))
+    flag = next(f for f in range(frames) if buf[lead_off + f] == top)
+    ranked = [man["drivers"][ci]["n"] for ci in buf[pos_off + flag * cars:pos_off + flag * cars + cars]]
+    got = [n for n in ranked if n in finished]
+    want = sorted(got, key=lambda n: finished[n])
+    if not want:
+        return 0, 0, ""
+    at = {n: i for i, n in enumerate(got)}
+    displaced = len(want) - _lis([at[n] for n in want])
+    exact = sum(1 for a, b in zip(got, want) if a == b)
+    return displaced, exact, len(want)
+
+
 def main() -> int:
     year = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     season = json.loads((SEASONS / f"{year}.json").read_text())
     rounds = sorted(int(p.stem.split("-")[1]) for p in MAN.glob(f"{year}-*.json")
                     if p.stem.split("-")[1].isdigit())
-    clean = 0
+    clean = grid_off = 0
     for rnd in rounds:
         displaced, exact, n, span = check(year, rnd, season)
         clean += displaced == 0
+        grid_off += displaced
         mark = "ok  " if displaced == 0 else "    "
         note = "grid exact" if displaced == 0 else f"{displaced} of {n} out of place"
         print(f"{mark}r{rnd:<2} {exact:>2}/{n} in slot  {note}{span}")
-    print(f"\n{clean}/{len(rounds)} rounds reproduce the starting grid exactly")
-    return 0 if clean == len(rounds) else 1
+    print(f"\n{clean}/{len(rounds)} rounds reproduce the starting grid exactly, "
+          f"{grid_off} cars out of place in all")
+
+    print("\nclosing order, against the classified result")
+    ends = fin_off = 0
+    for rnd in rounds:
+        displaced, exact, n = finish_check(year, rnd, season)
+        ends += displaced == 0
+        fin_off += displaced
+        mark = "ok  " if displaced == 0 else "    "
+        note = "result exact" if displaced == 0 else f"{displaced} of {n} out of place"
+        print(f"{mark}r{rnd:<2} {exact:>2}/{n} in place  {note}")
+    # Rounds-exact is a brittle headline — one adjacent swap costs a whole round
+    # — so the count of cars out of place is reported beside it.
+    print(f"\n{ends}/{len(rounds)} rounds finish in the classified order, "
+          f"{fin_off} cars out of place in all")
+
+    print("\nlap counting")
+    drifted = 0
+    for rnd in rounds:
+        off, n, worst = laps_check(year, rnd, season)
+        drifted += off
+        mark = "ok  " if off == 0 else "    "
+        note = "counts out" if off == 0 else f"{off} problem(s)  (e.g. {worst})"
+        print(f"{mark}r{rnd:<2} {note}")
+    print(f"\n{drifted} problems with lap counting across the season")
+    return 0 if clean == len(rounds) and drifted == 0 else 1
 
 
 if __name__ == "__main__":

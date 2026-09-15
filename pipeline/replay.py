@@ -124,7 +124,14 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
     if got < 2:
         return None
 
-    # Uniform grid, linearly interpolated between samples.
+    # Uniform grid, linearly interpolated between samples — but only across
+    # short gaps. One round's feed has seven minutes of positions and then
+    # nothing for the next fifty, and drawing a straight line between the two
+    # ends of that hole put the cars on a slow crawl across the map for the
+    # rest of the race. A gap longer than a few seconds is not something to
+    # interpolate: it is a stretch of race we do not have, and the cars belong
+    # off the map until the feed picks them up again.
+    MAX_GAP = 5.0
     xs = [[ABSENT] * len(nums) for _ in range(frames)]
     ys = [[ABSENT] * len(nums) for _ in range(frames)]
     allx, ally = [], []
@@ -137,9 +144,11 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
             t = f * STEP
             while j + 1 < len(s) and s[j + 1][0] < t:
                 j += 1
-            if j + 1 >= len(s) or s[j][0] > t + 5 or s[j + 1][0] < t - 5:
+            if j + 1 >= len(s):
                 continue
             t_a, xa, ya = s[j]; t_b, xb, yb = s[j + 1]
+            if t_b - t_a > MAX_GAP or t_a > t + MAX_GAP or t_b < t - MAX_GAP:
+                continue
             u = 0.0 if t_b == t_a else (t - t_a) / (t_b - t_a)
             u = max(0.0, min(1.0, u))
             xs[f][ci] = xa + (xb - xa) * u
@@ -161,11 +170,22 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         if len(here) >= 8 and len(set(here)) >= max(8, int(len(here) * 0.8)):
             skip = f
             break
+    # If the feed only covers a corner of the race there is no replay to show.
+    # Monaco 2026 is the case in point: the API has the first seven minutes of
+    # a two-and-a-half hour race and returns nothing for the rest, so what would
+    # be published under "the full race" is five laps of seventy-eight. Better
+    # for the race page to carry no replay than a misleading one.
+    need = max(2, len(nums) // 2)
+    covered = sum(1 for f in range(frames)
+                  if sum(1 for ci in range(len(nums)) if xs[f][ci] != ABSENT) >= need)
+    if covered < frames * 0.5:
+        print(f"    positions cover {covered / frames * 100:.0f}% of the race; no replay")
+        return None
+
     # And the same at the other end: at least one round's position feed stops
     # long before the lap data does, which left the replay running for over an
     # hour with an empty track. End it where the cars do.
     tail = frames
-    need = max(2, len(nums) // 2)
     while tail > skip + 1 and sum(1 for ci in range(len(nums))
                                  if xs[tail - 1][ci] != ABSENT) < need:
         tail -= 1

@@ -192,11 +192,15 @@ def grid_check(year: int, rnd: int) -> tuple[int, int, str]:
     track, scale, cars = man["track"], man["scale"], man["cars"]
     seg, cum, lap = arc_table(track)
     line = arc_of(track, seg, cum, st["x"], st["y"])
-    pits = {sp[0] for sp in man.get("spans", []) if sp[3] == 1 and sp[1] == 0}
+    # A car that is in the pits or already stopped when the lights go out is not
+    # on the grid and is not scored against it — at Melbourne one sat in the
+    # paddock 179 m off the racing line and another in the pit lane, and neither
+    # took the start.
+    absent = {sp[0] for sp in man.get("spans", []) if sp[1] == 0}
 
     behind = []
     for ci in range(cars):
-        if ci in pits:
+        if ci in absent:
             continue
         x, y = struct.unpack_from("<hh", buf, ci * 4)
         if x == -32768:

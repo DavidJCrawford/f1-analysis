@@ -11,6 +11,10 @@
   "frac": 0.032257,
   "fromRound": 14
  },
+ "melbourne": {
+  "frac": 0.996933,
+  "fromRound": 1
+ },
  "miami": {
   "frac": 0.023354,
   "fromRound": 4

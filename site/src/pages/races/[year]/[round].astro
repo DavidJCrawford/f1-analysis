@@ -26,7 +26,7 @@ const finished = results.filter((r) => r.posNum != null).length;
   <div class="wrap section" data-pagefind-body>
     <p class="eyebrow">
       Round {round} of {s.races.length} · {TIER_LABEL[race.tier]} tier ·
-      <a href={u(`/seasons/${year}/`)}>{year} season</a>
+      <a href={u('/races/')}>{year} season</a>
     </p>
     <h1 class="headline" style="margin-top:.3em">{race.shortName}</h1>
     <p class="lead muted" style="margin-top:.7em">{race.officialName}</p>

@@ -35,7 +35,7 @@ const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
     {titles.length > 0 && (
       <p class="lead" style="margin-top:1.6rem">
         Constructors' champion in {titles.map((t, i) => (
-          <>{i > 0 && ', '}<a class="num" href={u(`/seasons/${t.year}/`)}>{t.year}</a></>
+          <>{i > 0 && ', '}<a class="num" href={u('/races/')}>{t.year}</a></>
         ))}.
       </p>
     )}
@@ -49,7 +49,7 @@ const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
             <tbody>
               {years.map((y) => (
                 <tr class={y.champion ? 'champ' : undefined}>
-                  <td class="n"><a href={u(`/seasons/${y.year}/`)}>{y.year}</a></td>
+                  <td class="n"><a href={u('/races/')}>{y.year}</a></td>
                   <td class="n">{y.pos}{y.champion && <span class="crown" aria-label="Champion"> ●</span>}</td>
                   <td class="n">{pts(y.points)}</td>
                 </tr>

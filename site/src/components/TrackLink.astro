@@ -109,8 +109,10 @@
 
     // Pointing at the map. The track is a thin line, so the nearest point is
     // snapped to rather than requiring a direct hit — but only within reach of
-    // it, or the whole panel would respond.
-    const REACH = 0.13;
+    // it, or the whole panel would respond. Taken as a share of the viewBox
+    // rather than a number of user units, so it survives the map being drawn
+    // in a different coordinate space.
+    const REACH = map.viewBox.baseVal.width * 0.116;
     map.addEventListener('pointermove', (e) => {
       const p = toLocal(map, e);
       if (!p) return;

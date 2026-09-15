@@ -208,6 +208,9 @@ const drivers = (manifest.drivers ?? []) as
     let lap: Uint8Array | null = null;
 
     let frame = 0, playing = false, dir = 1, zoom = 4.5, focus = -1;
+    // The camera eases toward whoever it is following rather than being pinned
+    // to them, so a change of leader glides instead of cutting.
+    let camX = 0, camY = 0, camTX = 0, camTY = 0, camReady = false;
     let raf = 0, last = 0, opener: HTMLElement | null = null;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -252,21 +255,35 @@ const drivers = (manifest.drivers ?? []) as
         b.addEventListener('click', () => { focus = focus === i ? -1 : i; paint(); }));
     }
 
+    let stripKey = '';
     function updateStrip(f: number) {
       const ord = orderAt(f);
       if (!ord.length) return;
       const leadLap = lapOf(f, ord[0]);
+      // Only touch the strip when something in it actually changed. Rewriting
+      // and reordering twenty-two rows of a scrolling flex list on every
+      // animation frame is what made the field shimmer the moment the cars
+      // moved; reading the laps to compare is a few typed-array lookups.
+      const laps = ord.map((car) => lapOf(f, car));
+      const key = `${focus}|${ord.join(',')}|${laps.join(',')}`;
+      if (key === stripKey) return;
+      stripKey = key;
+
+      const held = document.activeElement;
+      const frag = document.createDocumentFragment();
       ord.forEach((car, p) => {
         const b = chips[car];
         if (!b) return;
         b.querySelector('.pos')!.textContent = String(p + 1);
-        const down = leadLap - lapOf(f, car);
+        const down = leadLap - laps[p];
         b.querySelector('.down')!.textContent = down > 0 ? `+${down}L` : '';
         b.setAttribute('aria-pressed', String(focus === car));
-        // Reorder without rebuilding, so focus and scroll position survive.
-        const li = b.parentElement!;
-        if (strip.children[p] !== li) strip.insertBefore(li, strip.children[p] ?? null);
+        frag.appendChild(b.parentElement!);
       });
+      // Every row is in the fragment, so one append puts the whole list back in
+      // order in a single layout pass without rebuilding any of the buttons.
+      strip.appendChild(frag);
+      if (held instanceof HTMLElement && held.isConnected) held.focus({ preventScroll: true });
     }
 
     // ── drawing ─────────────────────────────────────────────────────────────
@@ -331,12 +348,19 @@ const drivers = (manifest.drivers ?? []) as
 
       const ord = orderAt(frame);
       const lead = focus >= 0 ? focus : (ord[0] ?? 0);
-      const centre = carAt(frame, lead) ?? [0, 0];
+      const target = carAt(frame, lead);
+      if (target) { camTX = target[0]; camTY = target[1]; }
+      if (!camReady) { camX = camTX; camY = camTY; camReady = true; }
+      else {
+        const k = reduced ? 1 : 0.16;
+        camX += (camTX - camX) * k;
+        camY += (camTY - camY) * k;
+      }
       const unit = (Math.min(w, h) / 34000) * zoom;
 
       ctx.translate(w / 2, h / 2);
       ctx.scale(unit, -unit);                       // y up
-      ctx.translate(-centre[0], -centre[1]);
+      ctx.translate(-camX, -camY);
 
       if (man.track?.length) {
         ctx.beginPath();
@@ -399,12 +423,18 @@ const drivers = (manifest.drivers ?? []) as
         if (frame >= man.frames - 1) { frame = man.frames - 1; setPlaying(false); }
         if (frame <= 0) { frame = 0; setPlaying(false); }
         paint();
+      } else if (camReady && Math.hypot(camTX - camX, camTY - camY) > 2) {
+        paint();                       // let the camera finish settling
       }
       last = now;
       raf = requestAnimationFrame(tick);
     }
 
     function setPlaying(v: boolean) {
+      // Restart the clock on the transition into play. The loop keeps it fresh
+      // while it runs, but requestAnimationFrame stops in a hidden tab, so
+      // without this the first frame back could carry a long idle stretch.
+      if (v && !playing) last = performance.now();
       playing = v;
       playBtn.textContent = v ? '❚❚' : '▶';
       playBtn.setAttribute('aria-label', v ? 'Pause' : 'Play');
@@ -454,7 +484,7 @@ const drivers = (manifest.drivers ?? []) as
       document.body.style.overflow = 'hidden';
       resize();
       await load();
-      frame = 0; zoom = 4.5; focus = -1;
+      frame = 0; zoom = 4.5; focus = -1; camReady = false; stripKey = '';
       paint();
       playBtn.focus();
       if (!reduced && await runCountdown()) { dir = 1; setPlaying(true); }

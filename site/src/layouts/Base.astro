@@ -1,7 +1,6 @@
 ---
 import { Font } from 'astro:assets';
 import { u } from '@lib/url';
-import DataStamp from '@components/DataStamp.astro';
 import '@styles/base.css';
 
 interface Props { title: string; description?: string; eyebrow?: string; }
@@ -52,28 +51,6 @@ const path = Astro.url.pathname;
 
     <main id="main"><slot /></main>
 
-    <footer class="footer">
-      <hr class="rule" />
-      <div class="wrap footer-inner">
-        <div class="stack" style="--flow:.5rem">
-          <DataStamp />
-          <p class="ui muted measure">
-            Results and championship data from <a href="https://github.com/f1db/f1db">F1DB</a> (CC BY 4.0).
-            Circuit geometry from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a> (MIT)
-            and <a href="https://github.com/TUMFTM/racetrack-database">TUMFTM/racetrack-database</a> (LGPL-3.0),
-            the latter derived from <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
-            and offered onward under ODbL. Official circuit geometry, corner positions and
-            start/finish lines from the Formula 1 timing feed, via
-            <a href="https://multiviewer.app">MultiViewer</a> and <a href="https://openf1.org">OpenF1</a>.
-            Methods are published — every derived figure links to the formula behind it.
-          </p>
-          <p class="ui muted measure">
-            Unofficial and unaffiliated. Not associated with Formula 1, the FIA, or any team.
-            F1, FORMULA ONE and related marks are trademarks of Formula One Licensing BV.
-          </p>
-        </div>
-      </div>
-    </footer>
   </body>
 </html>
 
@@ -103,6 +80,4 @@ const path = Astro.url.pathname;
   .nav-link:hover { color: var(--ks-ink); border-bottom-color: var(--ks-kinpaku); }
   .nav-link[aria-current='page'] { color: var(--ks-ink); border-bottom-color: var(--ks-edge); }
 
-  .footer { margin-top: clamp(56px, 8vw, 104px); }
-  .footer-inner { padding-block: 28px 56px; }
 </style>

@@ -2,7 +2,7 @@
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
-import { counts, seasons, season, circuits, outline, meta } from '@lib/data';
+import { counts, seasons, season, seasonCircuits, outline, meta } from '@lib/data';
 import { u } from '@lib/url';
 import { int, shortDate } from '@lib/format';
 
@@ -11,9 +11,8 @@ const year = seasons()[0]!.year;
 const s = season(year);
 const m = meta();
 
-const allCircuits = circuits()
-  .map((x) => ({ c: x, o: outline(x.id), held: x.racesHeld ?? 0 }))
-  .sort((a, b) => b.held - a.held || a.c.name.localeCompare(b.c.name));
+// In the order they are raced, so the gallery reads across as the season runs.
+const allCircuits = seasonCircuits(year).map((x) => ({ c: x, o: outline(x.id) }));
 const withOutline = allCircuits.filter((x) => x.o);
 const without = allCircuits.filter((x) => !x.o);
 
@@ -91,8 +90,7 @@ const lastWinner = last
   <section class="wrap section" id="circuits" data-pagefind-body>
     <h2 class="title-lg">Circuits</h2>
     <p class="lead" style="margin-top:.8em">
-      The {c.circuits} circuits on the {year} calendar, ordered by how often they have
-      held a Grand Prix.
+      The {c.circuits} circuits on the {year} calendar, in the order they are raced.
     </p>
 
     <div class="gallery" style="margin-top:2.6rem">

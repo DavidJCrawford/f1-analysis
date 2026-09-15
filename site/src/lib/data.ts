@@ -165,10 +165,18 @@ export function constructorSeasons(id: string) {
 export const currentSeasonYear = (): number =>
   Math.max(...seasons().map((s) => s.year));
 
-/** Circuits on a season's calendar, in calendar order. */
+/** Circuits on a season's calendar, in calendar order — which took a round
+ *  number to get right: filtering the circuit list by a set of ids returns them
+ *  in whatever order that list happens to be in, which is alphabetical. */
 export function seasonCircuits(year: number): Circuit[] {
-  const ids = new Set(races().filter((r) => r.year === year).map((r) => r.circuitId));
-  return circuits().filter((c) => ids.has(c.id));
+  const byId = new Map(circuits().map((c) => [c.id, c]));
+  const out: Circuit[] = [];
+  const seen = new Set<string>();
+  for (const r of races().filter((x) => x.year === year).sort((a, b) => a.round - b.round)) {
+    const c = byId.get(r.circuitId);
+    if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); }
+  }
+  return out;
 }
 
 export const TIER_LABEL: Record<string, string> = {

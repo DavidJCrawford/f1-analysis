@@ -1,7 +1,7 @@
 ---
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
-import { seasons, season, circuit, meta, counts, TIER_LABEL } from '@lib/data';
+import { seasons, season, circuit, meta, counts, hasDriverPage, TIER_LABEL } from '@lib/data';
 import { u } from '@lib/url';
 import { shortDate, pts } from '@lib/format';
 
@@ -69,7 +69,12 @@ const decided = index.championDriver || index.championConstructor;
               {s.driverStandings.slice(0, 12).map((d) => (
                 <tr>
                   <td class="n">{d.pos}</td>
-                  <td>{d.driver}{d.champion && <span class="crown" aria-label="Champion"> ●</span>}</td>
+                  <td>
+                    {hasDriverPage(d.driverId)
+                      ? <a href={u(`/drivers/${d.driverId}/`)}>{d.driver}</a>
+                      : d.driver}
+                    {d.champion && <span class="crown" aria-label="Champion"> ●</span>}
+                  </td>
                   <td class="n">{pts(d.points)}</td>
                 </tr>
               ))}

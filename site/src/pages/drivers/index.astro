@@ -1,0 +1,58 @@
+---
+import Base from '@layouts/Base.astro';
+import { drivers, seasons, teamColour } from '@lib/data';
+import { u } from '@lib/url';
+import { int, pts } from '@lib/format';
+
+const year = seasons()[0]!.year;
+const list = drivers();
+---
+<Base title="Drivers" description={`Every driver on the ${year} Formula 1 grid.`}>
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">Season {year}</p>
+    <h1 class="headline" style="margin-top:.2em">Drivers</h1>
+    <p class="lead" style="margin-top:1em">
+      {list.length} drivers have started a race this season.
+    </p>
+
+    <div class="table-scroll" style="margin-top:2.4rem">
+      <table>
+        <thead>
+          <tr>
+            <th class="n">No</th><th>Driver</th><th>Team</th><th>Nationality</th>
+            <th class="n">Starts</th><th class="n">Wins</th><th class="n">Career points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((d) => {
+            const colour = teamColour(d.constructorId);
+            return (
+              <tr>
+                <td class="n">{d.number ?? '—'}</td>
+                <td><a href={u(`/drivers/${d.id}/`)}>{d.name}</a></td>
+                <td class="muted">
+                  <a class="team" href={u(`/teams/${d.constructorId}/`)}
+                     style={colour ? `--team: ${colour}` : undefined}>
+                    <span class="chip" aria-hidden="true"></span>{d.constructor}
+                  </a>
+                </td>
+                <td class="muted">{d.nationality}</td>
+                <td class="n">{int(d.starts)}</td>
+                <td class="n">{int(d.wins)}</td>
+                <td class="n">{pts(d.points)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .team { display: inline-flex; align-items: center; gap: .5em; }
+  .team .chip {
+    width: .58em; height: .58em; border-radius: 50%;
+    background: var(--team, var(--ks-text-mute-deep));
+  }
+</style>

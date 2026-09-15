@@ -1,0 +1,183 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '@layouts/Base.astro';
+import Stat from '@components/Stat.astro';
+import {
+  drivers, driverById, driverSeasons, driverResults, teamColour, circuit,
+} from '@lib/data';
+import { u } from '@lib/url';
+import { int, pts, shortDate, longDate } from '@lib/format';
+
+export const getStaticPaths = (() =>
+  drivers().map((d) => ({ params: { id: d.id } }))) satisfies GetStaticPaths;
+
+const d = driverById(Astro.params.id!)!;
+const years = driverSeasons(d.id);
+const results = driverResults(d.id);
+const colour = teamColour(d.constructorId);
+
+/** Whole years between two dates. */
+const ageAt = (from: string, to: string): number => {
+  const a = new Date(from), b = new Date(to);
+  let n = b.getFullYear() - a.getFullYear();
+  const m = b.getMonth() - a.getMonth();
+  if (m < 0 || (m === 0 && b.getDate() < a.getDate())) n -= 1;
+  return n;
+};
+const age = d.born ? ageAt(d.born, d.died ?? new Date().toISOString().slice(0, 10)) : null;
+
+const best = results.reduce<{ pos: number; race: (typeof results)[number] } | null>((acc, r) => {
+  const p = r.result.posNum;
+  return p && (!acc || p < acc.pos) ? { pos: p, race: r } : acc;
+}, null);
+const wins = results.filter((r) => r.result.posNum === 1).length;
+const podiums = results.filter((r) => r.result.posNum && r.result.posNum <= 3).length;
+const seasonPoints = years[0]?.points ?? null;
+---
+<Base title={d.name} description={`${d.fullName} — Formula 1 career record.`}>
+  <div class="wrap section" data-pagefind-body>
+    <p class="eyebrow">
+      Driver · {d.nationality}
+      {d.number != null && <> · <span class="num">#{d.number}</span></>}
+    </p>
+    <h1 class="headline" style="margin-top:.3em">{d.name}</h1>
+    <p class="lead muted" style="margin-top:.7em">{d.fullName}</p>
+
+    <p class="lead" style="margin-top:1.2rem">
+      Driving for{' '}
+      <a href={u(`/teams/${d.constructorId}/`)} class="team" style={colour ? `--team: ${colour}` : undefined}>
+        <span class="chip" aria-hidden="true"></span>{d.constructor}
+      </a>.
+    </p>
+
+    <hr class="rule" style="margin-top:2.4rem" />
+    <div class="stats">
+      <Stat label="Entries" value={int(d.entries)} />
+      <Stat label="Starts" value={int(d.starts)} />
+      <Stat label="Wins" value={int(d.wins)} />
+      <Stat label="Podiums" value={int(d.podiums)} />
+      <Stat label="Poles" value={int(d.poles)} />
+      <Stat label="Fastest laps" value={int(d.fastestLaps)} />
+      <Stat label="Titles" value={int(d.titles)} />
+      <Stat label="Career points" value={pts(d.points)} />
+    </div>
+    <hr class="rule" />
+
+    <div class="two-up" style="margin-top:3.4rem">
+      <section>
+        <h2 class="title-lg">Life</h2>
+        <dl class="facts" style="margin-top:1rem">
+          {d.born && (
+            <>
+              <dt>Born</dt>
+              <dd>
+                <span class="num">{longDate(d.born)}</span>
+                {age != null && !d.died && <span class="muted"> · {age} years old</span>}
+              </dd>
+            </>
+          )}
+          {d.died && (
+            <>
+              <dt>Died</dt>
+              <dd><span class="num">{longDate(d.died)}</span>{age != null && <span class="muted"> · aged {age}</span>}</dd>
+            </>
+          )}
+          {(d.birthPlace || d.birthCountry) && (
+            <>
+              <dt>From</dt>
+              <dd>{[d.birthPlace, d.birthCountry].filter(Boolean).join(', ')}</dd>
+            </>
+          )}
+          <dt>Nationality</dt>
+          <dd>{d.nationality}</dd>
+          {d.abbr && (<><dt>Code</dt><dd class="num">{d.abbr}</dd></>)}
+        </dl>
+
+        <h2 class="title-lg" style="margin-top:2.6rem">Career bests</h2>
+        <dl class="facts" style="margin-top:1rem">
+          <dt>Championship</dt>
+          <dd class="num">{d.bestChampionshipPosition ? `P${d.bestChampionshipPosition}` : '—'}</dd>
+          <dt>Race finish</dt>
+          <dd class="num">{d.bestFinish ? `P${d.bestFinish}` : '—'}</dd>
+          <dt>Starting grid</dt>
+          <dd class="num">{d.bestGrid ? `P${d.bestGrid}` : '—'}</dd>
+          {d.grandSlams != null && d.grandSlams > 0 && (
+            <><dt>Grand slams</dt><dd class="num">{int(d.grandSlams)}</dd></>
+          )}
+          {d.laps != null && (<><dt>Racing laps</dt><dd class="num">{int(d.laps)}</dd></>)}
+        </dl>
+      </section>
+
+      <section>
+        <h2 class="title-lg">This season</h2>
+        <div class="stats tight" style="margin-top:1rem">
+          <Stat label="Position" value={years[0] ? `P${years[0].pos}` : '—'} />
+          <Stat label="Points" value={pts(seasonPoints)} />
+          <Stat label="Wins" value={int(wins)} />
+          <Stat label="Podiums" value={int(podiums)} />
+        </div>
+        {best && (
+          <p class="ui muted measure" style="margin-top:1.2rem">
+            Best result so far: P{best.pos} at{' '}
+            <a href={u(`/races/${best.race.race.year}/${best.race.race.round}/`)}>
+              {best.race.race.shortName}
+            </a>.
+          </p>
+        )}
+      </section>
+    </div>
+
+    <section style="margin-top:3.4rem">
+      <h2 class="title-lg">Race by race</h2>
+      {results.length ? (
+        <div class="table-scroll" style="margin-top:1rem">
+          <table>
+            <thead>
+              <tr>
+                <th class="n">Rd</th><th>Grand Prix</th><th>Circuit</th>
+                <th>Date</th><th class="n">Grid</th><th class="n">Finish</th><th class="n">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map(({ race, result }) => {
+                const ci = circuit(race.circuitId);
+                return (
+                  <tr class={result.posNum === 1 ? 'won' : undefined}>
+                    <td class="n">{race.round}</td>
+                    <td><a href={u(`/races/${race.year}/${race.round}/`)}>{race.shortName}</a></td>
+                    <td>{ci ? <a href={u(`/circuits/${ci.id}/`)}>{ci.name}</a> : race.circuitId}</td>
+                    <td class="num muted">{shortDate(race.date)}</td>
+                    <td class="n">{result.grid ?? '—'}</td>
+                    <td class="n">
+                      {result.posNum ?? <span class="muted">{result.reasonRetired ?? result.pos}</span>}
+                    </td>
+                    <td class="n">{pts(result.points)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p class="ui muted measure" style="margin-top:1rem">No races yet this season.</p>
+      )}
+    </section>
+  </div>
+</Base>
+
+<style>
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
+  .stats.tight { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); padding-block: 0; }
+  .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: .55em 1.4em; margin: 0; }
+  .facts dt { color: var(--ks-text-mute-deep); font-size: var(--ks-type-ui-size); }
+  .facts dd { margin: 0; }
+  /* The team's own colour, as a mark beside its name rather than behind it. */
+  .team { display: inline-flex; align-items: baseline; gap: .5em; }
+  .team .chip {
+    width: .62em; height: .62em; border-radius: 50%;
+    background: var(--team, var(--ks-text-mute-deep));
+    align-self: center;
+  }
+  tr.won td { color: var(--ks-ink); }
+</style>

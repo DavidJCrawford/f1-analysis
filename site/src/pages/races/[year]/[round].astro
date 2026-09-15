@@ -4,7 +4,7 @@ import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
 import RaceReplay from '@components/RaceReplay.astro';
-import { races, season, circuit, outline, replay, TIER_LABEL } from '@lib/data';
+import { races, season, circuit, outline, replay, hasDriverPage, TIER_LABEL } from '@lib/data';
 import { u } from '@lib/url';
 import { longDate, km, pts } from '@lib/format';
 
@@ -73,7 +73,11 @@ const finished = results.filter((r) => r.posNum != null).length;
                 <li>
                   <span class="pos num">{p.posNum}</span>
                   <span class="who">
-                    <span class="title">{p.driver}</span>
+                    <span class="title">
+                      {hasDriverPage(p.driverId)
+                        ? <a class="plain" href={u(`/drivers/${p.driverId}/`)}>{p.driver}</a>
+                        : p.driver}
+                    </span>
                     <span class="ui muted"><a href={u(`/teams/${p.constructorId}/`)}>{p.constructor}</a></span>
                   </span>
                 </li>
@@ -97,7 +101,12 @@ const finished = results.filter((r) => r.posNum != null).length;
                   <tr class={r.posNum == null ? 'dnf' : undefined}>
                     <td class="n">{r.pos}</td>
                     <td class="n muted">{r.no}</td>
-                    <td>{r.driver}{r.sharedCar && <span class="ui muted" title="Shared drive"> ◊</span>}</td>
+                    <td>
+                      {hasDriverPage(r.driverId)
+                        ? <a href={u(`/drivers/${r.driverId}/`)}>{r.driver}</a>
+                        : r.driver}
+                      {r.sharedCar && <span class="ui muted" title="Shared drive"> ◊</span>}
+                    </td>
                     <td class="muted"><a href={u(`/teams/${r.constructorId}/`)}>{r.constructor}</a></td>
                     <td class="n">{r.laps ?? '—'}</td>
                     <td class="num">{r.time ?? r.gap ?? r.reasonRetired ?? '—'}</td>

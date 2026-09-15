@@ -29,6 +29,18 @@ export interface Constructor {
   points: number | null; bestChampionshipPosition: number | null;
 }
 
+export interface Driver {
+  id: string; name: string; fullName: string; abbr: string | null;
+  number: number | null; nationality: string;
+  born: string | null; died: string | null;
+  birthPlace: string | null; birthCountry: string | null;
+  entries: number | null; starts: number | null; wins: number | null;
+  podiums: number | null; poles: number | null; titles: number | null;
+  fastestLaps: number | null; grandSlams: number | null; laps: number | null;
+  points: number | null; bestChampionshipPosition: number | null;
+  bestGrid: number | null; bestFinish: number | null;
+}
+
 export interface Race {
   id: number; year: number; round: number; date: string;
   grandPrixId: string; name: string; shortName: string; officialName: string;

@@ -69,10 +69,26 @@ constructors = [{
     "bestChampionshipPosition": num(c["bestChampionshipPosition"]),
 } for c in read("constructors")]
 
-# ── drivers (slim) ──────────────────────────────────────────────────────────
+# ── drivers ─────────────────────────────────────────────────────────────────
+# Career totals alongside the name, so a driver page can be written from the
+# record rather than from prose. Fields are named as the constructors' are.
 drivers = [{
-    "id": d["id"], "name": d["name"], "abbr": d["abbreviation"] or None,
+    "id": d["id"], "name": d["name"], "fullName": d["fullName"] or d["name"],
+    "abbr": d["abbreviation"] or None,
+    "number": num(d["permanentNumber"]),
     "nationality": countries.get(d["nationalityCountryId"], d["nationalityCountryId"]),
+    "born": d["dateOfBirth"] or None, "died": d["dateOfDeath"] or None,
+    "birthPlace": d["placeOfBirth"] or None,
+    "birthCountry": countries.get(d["countryOfBirthCountryId"], d["countryOfBirthCountryId"] or None),
+    "entries": num(d["totalRaceEntries"]), "starts": num(d["totalRaceStarts"]),
+    "wins": num(d["totalRaceWins"]), "podiums": num(d["totalPodiums"]),
+    "poles": num(d["totalPolePositions"]), "titles": num(d["totalChampionshipWins"]),
+    "fastestLaps": num(d["totalFastestLaps"]), "grandSlams": num(d["totalGrandSlams"]),
+    "laps": num(d["totalRaceLaps"]),
+    "points": num(d["totalChampionshipPoints"], float),
+    "bestChampionshipPosition": num(d["bestChampionshipPosition"]),
+    "bestGrid": num(d["bestStartingGridPosition"]),
+    "bestFinish": num(d["bestRaceResult"]),
 } for d in read("drivers")]
 dname = {d["id"]: d["name"] for d in drivers}
 cname = {c["id"]: c["name"] for c in constructors}

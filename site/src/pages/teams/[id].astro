@@ -2,9 +2,12 @@
 import type { GetStaticPaths } from 'astro';
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
-import { constructors, constructorById, constructorSeasons } from '@lib/data';
+import {
+  constructors, constructorById, constructorSeasons, constructorDrivers,
+  teamColour, driverSeasons,
+} from '@lib/data';
 import { u } from '@lib/url';
-import { int, pts } from '@lib/format';
+import { int, pts, yearSpan } from '@lib/format';
 
 export const getStaticPaths = (() =>
   constructors().map((c) => ({ params: { id: c.id } }))) satisfies GetStaticPaths;
@@ -12,7 +15,9 @@ export const getStaticPaths = (() =>
 const c = constructorById(Astro.params.id!)!;
 const years = constructorSeasons(c.id);
 const titles = years.filter((y) => y.champion);
-const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
+const span = yearSpan(years.at(-1)?.year ?? null, years[0]?.year ?? null);
+const colour = teamColour(c.id);
+const lineUp = constructorDrivers(c.id).map((d) => ({ d, season: driverSeasons(d.id)[0] ?? null }));
 ---
 <Base title={c.name} description={`${c.fullName} — Formula 1 constructor record.`}>
   <div class="wrap section" data-pagefind-body>
@@ -20,7 +25,7 @@ const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
     <h1 class="headline" style="margin-top:.3em">{c.name}</h1>
     <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
 
-    <hr class="rule" style="margin-top:2.4rem" />
+    <hr class={colour ? 'rule accent' : 'rule'} style={`margin-top:2.4rem${colour ? `;--team:${colour}` : ''}`} />
     <div class="stats">
       <Stat label="Entries" value={int(c.entries)} />
       <Stat label="Starts" value={int(c.starts)} />
@@ -38,6 +43,28 @@ const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
           <>{i > 0 && ', '}<a class="num" href={u('/races/')}>{t.year}</a></>
         ))}.
       </p>
+    )}
+
+    {lineUp.length > 0 && (
+      <section style="margin-top:3.4rem">
+        <h2 class="title-lg">Drivers</h2>
+        <ul class="lineup" style={colour ? `--team: ${colour}` : undefined}>
+          {lineUp.map(({ d, season }) => (
+            <li>
+              <a class="plain card" href={u(`/drivers/${d.id}/`)}>
+                <span class="no num">{d.number ?? '—'}</span>
+                <span class="who">
+                  <span class="nm">{d.name}</span>
+                  <span class="sub ui muted">{d.nationality}</span>
+                </span>
+                <span class="tally num">
+                  {season ? <>P{season.pos} · {pts(season.points)}</> : <span class="muted">—</span>}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
     )}
 
     <section style="margin-top:3.4rem">
@@ -70,6 +97,35 @@ const span = years.length ? `${years.at(-1)!.year}–${years[0]!.year}` : '—';
 
 <style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
+
+  /* The team's colour, once, as a short bar laid on the rule that opens its
+     record. The rule keeps the hairline weight every other rule on the site
+     has, so the colour reads as a mark on the page rather than as a heavier
+     line drawn in a different colour. */
+  /* `hr` is overflow:hidden in the browser's own stylesheet, and the box is a
+     single pixel tall, so the bar needs to be let out of it. */
+  .rule.accent { position: relative; overflow: visible; }
+  .rule.accent::after {
+    content: ''; position: absolute; left: 0; top: -1px;
+    width: 96px; height: 3px; background: var(--team);
+  }
+
+  .lineup { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .lineup .card {
+    display: grid; grid-template-columns: 2.4em 1fr auto; align-items: center; gap: 14px;
+    padding: 13px 16px; border: 1px solid var(--ks-rule); border-radius: 6px;
+    border-left: 3px solid var(--team, var(--ks-rule));
+    transition: border-color var(--ks-quick) var(--ks-ease), background var(--ks-quick) var(--ks-ease);
+  }
+  .lineup .card:hover { background: var(--ks-paper-raised); }
+  .lineup .no { font-size: 1.15rem; color: var(--ks-ink); font-weight: 300; }
+  .lineup .who { display: flex; flex-direction: column; min-width: 0; }
+  .lineup .nm { color: var(--ks-ink); }
+  .lineup .sub { font-size: .78rem; }
+  .lineup .tally { font-size: .82rem; color: var(--ks-text-mute-deep); white-space: nowrap; }
+
+  @media (prefers-reduced-motion: reduce) { .lineup .card { transition: none; } }
   .crown { color: var(--ks-kinpaku); font-size: .7em; }
   tr.champ td { color: var(--ks-ink); }
 </style>

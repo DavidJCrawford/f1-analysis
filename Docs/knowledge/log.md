@@ -1,5 +1,11 @@
 # Directory Update Log
 
+## 2026-09-16
+
+* **Added**: [OpenF1 position coverage in practice](datasets/openf1-position-coverage.md) — measured across the 2026 season while building the race replays. Thirteen of fourteen races have no gap over a second; the exceptions fail in three distinct ways, and Monaco holds 6.5 minutes of a 2h 15m race. Records the reconstruction from the `car_data` speed channel, measured at a median 17 m error, and the clock skew between endpoints that presents as a geometry fault.
+* **Reassigned**: [source roles](policies/source-roles.md) — OpenF1, MultiViewer and TUMFTM moved out of build-time-only roles to `SPINE`, on the owner's decision that the project will never be commercialised. The document had said the opposite while the site already shipped their data. NonCommercial is satisfied; **share-alike is recorded as unresolved rather than claimed as met**.
+* **Corrected**: a Formula 1 circuit has a start line and a finish line and they are usually different places — the finish line opposite race control, the start line at the front of the grid. Drawing one and calling it the start/finish line scattered the grid around it. Carried into [SPEC](../SPEC.md) §6.7 and its appendix, along with the 8 m grid slot, the 50 m resolution limit on telling the two lines apart, and Melbourne, Monaco and Montreal using a single marker.
+
 ## 2026-09-14
 
 * **Created**: the bundle, grounding the [F1 Analysis specification](../SPEC.md) in verified research across twelve domains.

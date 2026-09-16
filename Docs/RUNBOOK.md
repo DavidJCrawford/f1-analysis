@@ -14,6 +14,19 @@ Operating procedures for a site that is **a weekly publication, not a build**.
 
 ---
 
+> **What is built, and what is planned.** This runbook was written against a
+> per-round, two-pass ingest (`make fetch YEAR= ROUND=`, `make refresh`,
+> provisional-then-final) that does not exist. The pipeline that does exist is
+> simpler: whole-season targets that cache every response and are safe to
+> re-run, listed by `make help` and used in §2 and §9. FastF1 is not used
+> either — the race data comes from OpenF1 directly.
+>
+> Sections 3–8 keep the *judgement* they were written for — calendar traps,
+> absence handling, amendments, what to re-check — and their command blocks
+> have been corrected to real targets. Where a concept has no implementation
+> (`make doctor`, `source_sha256`, provisional/final passes), it is marked
+> **not built** rather than quietly left as if it worked.
+
 ## 0. Why there is a human in this loop at all
 
 Three facts, none of which is negotiable:
@@ -62,11 +75,14 @@ is a bad tenant there.
 
 **Checklist:**
 
-- [ ] `uv sync --frozen` succeeds
-- [ ] `npm ci` succeeds
-- [ ] `FASTF1_CACHE` exported and the directory exists
-- [ ] `make doctor` passes (see §9)
-- [ ] You can fetch: `make fetch YEAR=2024 ROUND=12` returns non-empty data
+- [ ] `npm ci` succeeds in `site/`
+- [ ] `python3 --version` is 3.10 or later
+- [ ] `make spine` downloads an F1DB release and writes `.cache/f1db/.release`
+- [ ] `make replays` fetches from OpenF1 and writes `site/public/replays/`
+- [ ] `make verify` runs and reports zero start-line and lap-counting problems
+
+*Not built:* `make doctor`, `uv sync` (there is no Python lockfile), and
+`FASTF1_CACHE` (FastF1 is not used).
 
 ---
 
@@ -91,27 +107,52 @@ predate a stewards' decision, and a quiet weekend can see a release delayed past
 ### The run
 
 ```bash
-# 0. Start clean, on a branch.
-git switch -c ingest/2026-r17-singapore
+# 0. Start clean.
 git pull --ff-only origin main
 
-# 1. Discover what is new. Reads the per-season Index.json (~20-60 KB).
-make discover YEAR=2026
-#    -> prints the races whose source_sha256 set has changed
+# 1. The season spine — results, standings, entities. Fast, no race data.
+make spine          # download the current F1DB release
+make emit           # F1DB CSV -> canonical JSON in site/data/
 
-# 2. Fetch. Residential IP required. ~21 MB of raw streams per race session.
-make fetch YEAR=2026 ROUND=17
+# 2. The race itself. Both read the timing feed and cache every response
+#    under .cache/openf1, so a re-run costs nothing and is safe to repeat.
+make replays        # positions, running order, laps, pit and retirement spans
+make colours        # team colours, if the grid changed
 
-# 3. Transform and emit. Runs offline against the cache - no network.
-make transform YEAR=2026 ROUND=17
-make emit      YEAR=2026 ROUND=17
-
-# 4. Verify locally before you push. Runs the same gates CI will run.
+# 3. Score the replays against what is known independently of them.
 make verify
 
-# 5. Inspect what actually changed.
+# 4. Build, then read what actually changed.
+make build
 git status --short
 git diff --stat
+```
+
+**`make verify` is the gate that matters** and is worth reading rather than
+glancing at. It scores every replay against three things it cannot have got
+from the replay: the starting grid, the classified result, and the lap count.
+Numbers that should hold, as of 2026-09-16:
+
+| Check | Expected |
+| --- | --- |
+| Grids reproduced exactly | 8 of 14, 26 cars out of place in all |
+| Closing orders exact | 6 of 14, 17 cars out of place in all |
+| Cars not lined up behind the start line | **0** |
+| Lap-counting problems | **0** |
+
+The last two are absolutes: anything above zero is a fault, not a tolerance.
+The first two drift with the quality of a round's feed — a round getting
+*worse* is the signal, not the absolute number.
+
+**The feed backfills, so a cache is not a final answer.** Melbourne's opening
+was placeholder when first fetched and is real data now; refetching turned a
+replay that opened three minutes late into one that opens on the grid. If a
+round looks thin, delete its cached chunks and re-run before concluding the
+data does not exist:
+
+```bash
+rm -f .cache/openf1/loc_<session_key>_*.json
+make replays
 ```
 
 ### Read the diff before you commit
@@ -127,14 +168,14 @@ shows more, something is wrong and you should understand it before pushing.
 | Every race changed | Almost always a serialisation or rounding change. **Do not push.** The build is supposed to be a pure function — rebuilding an unchanged race must produce a byte-identical file. |
 
 ```bash
-# 6. Commit the ingest output as data, then open a PR.
-git add data/ site/data/
-git commit -m "ingest: 2026 R17 Singapore (provisional)"
-git push -u origin ingest/2026-r17-singapore
-gh pr create --fill
+# 5. Commit the data with the build, and push. Pushing main deploys.
+git add site/data site/public/replays
+git commit -m "ingest: 2026 R17 Singapore"
+git push
 ```
 
-CI runs the full gate set on the PR. **Merge to `main` deploys.**
+**Pushing `main` deploys.** The GitHub Actions workflow builds and publishes to
+Pages; there is no PR gate, so `make verify` before pushing is the gate.
 
 ### Post-deploy checklist
 
@@ -158,15 +199,18 @@ collides with pass 1 for race *N+1*.
 **The rule: never skip pass 2. Batch it instead.**
 
 ```bash
-# Run pass 1 for the new race and pass 2 for the previous one together.
-make fetch YEAR=2026 ROUND=18 && make transform YEAR=2026 ROUND=18 && make emit YEAR=2026 ROUND=18
-make refresh YEAR=2026 ROUND=17     # re-checks source_sha256, flips to final if settled
+# There is no per-round target. Both of these do the whole season and skip
+# anything already cached, so running after each race costs one race.
+make spine emit
+make replays
 make verify
 ```
 
-`make refresh` is the pass-2 entry point: it re-fetches only the manifest and
-re-emits if `source_sha256` changed, and it re-evaluates the staleness class.
-It is cheap and safe to run against any past race.
+*Not built:* `make refresh`, `source_sha256`, and the provisional/final
+two-pass model. The equivalent today is that **the feed backfills**: a round
+fetched within hours of the flag may hold less than the same round fetched a
+day later. Re-running does not refetch a cached chunk, so to pick up a
+correction, delete that session's chunks first — see §2.
 
 **During a triple-header, run the batch after each race** rather than deferring
 to the end. A three-race backlog of provisional pages is a much worse state than
@@ -181,7 +225,7 @@ on **Race-type sessions**, not meetings — this matters:
 > 16 meetings and only 14 sessions named "Race". Any incremental build keyed on
 > meetings will double-count the two test meetings.
 
-If `make discover` proposes ingesting a "race" in January or February, it has
+If a "race" in January or February appears in the calendar, the source has
 picked up a test meeting. Do not ingest it as a race.
 
 ---
@@ -238,7 +282,7 @@ does it".
 | --- | --- |
 | Are you on a VPN or corporate network? | Disconnect. Datacenter egress is blocked. |
 | Is the session actually over? | The archive populates after the session ends. |
-| Does the path exist? | Event-name slugs change; re-run `make discover`. |
+| Does the path exist? | Round numbers come from F1DB; re-run `make spine emit`. |
 | Is it just the mirror failing? | Expected — the mirror is dead (404 everywhere). The primary should still serve from residential. |
 
 **Never** conclude "the data isn't published yet" without checking your egress
@@ -263,7 +307,7 @@ every `.ff1pkl` you have.
 
 ```bash
 # Re-fetch the current season only; leave history alone until you need it.
-make fetch YEAR=2026 FORCE=1
+rm -rf .cache/openf1 && make replays        # forces a full refetch
 ```
 
 Record `fastf1.__version__` alongside the cache so this is diagnosable rather
@@ -276,7 +320,7 @@ If it happened silently, the stale-manifest gate is broken — fix the gate, not
 just the data.
 
 ```bash
-make refresh YEAR=<year> ROUND=<round>   # re-emit
+rm -f .cache/openf1/loc_<session_key>_*.json && make replays
 make verify                              # confirm the manifest matches disk
 ```
 
@@ -327,7 +371,7 @@ machine-driven — it is not your job to notice.
 `timeMillis`.
 
 ```bash
-make refresh YEAR=2026 ROUND=17
+make replays && make verify
 #  -> detects the diff, sets classification: amended, emits the amendment note
 make verify
 ```
@@ -358,8 +402,8 @@ a weekend job; an incremental one is minutes.
 
 ```bash
 # Backfill a season. Rate limits make this slow by design - let it run.
-make fetch YEAR=2019
-make transform YEAR=2019 && make emit YEAR=2019
+make spine emit        # every season F1DB carries
+make replays           # only rounds in scope; widen scope.ts first
 make verify
 ```
 
@@ -419,25 +463,36 @@ ones, and so will never announce themselves:
 ## 9. Quick reference
 
 ```bash
-make doctor                          # environment check: egress, cache, toolchain, pins
-make discover YEAR=2026              # what changed upstream?
-make fetch     YEAR=2026 ROUND=17    # residential IP required
-make transform YEAR=2026 ROUND=17    # offline
-make emit      YEAR=2026 ROUND=17    # offline
-make refresh   YEAR=2026 ROUND=17    # pass 2 / amendment check
-make verify                          # run CI's gates locally
+make help              # every target, with what it does
+make spine emit        # season results and entities, from the F1DB release
+make replays           # race positions from the timing feed (cached; slow first time)
+make colours           # team colours, joined from the feed by car number
+make verify            # score the replays against grid, result and lap count
+make outlines profile  # circuit geometry and corner detection
+make build             # the site and its search index
+make check             # type check
+make preview           # serve what was built
 ```
 
-### The gates `make verify` runs
+### What `make verify` actually checks
 
-Golden-file tests · JSON schema validation · binary assertions · link check ·
-axe · Lighthouse budgets · visual regression per coverage tier · size gate ·
-stale-manifest check.
+Not a test suite — three scores against facts the replay cannot have produced
+itself. The starting grid, the classified result, and the lap count. Cars out
+of place against the **start line** and **lap-counting problems** must both be
+zero; the grid and closing-order scores drift with feed quality, so watch for a
+round getting worse rather than the absolute number.
+
+There is no CI gate. Pushing `main` deploys, so this is the gate.
 
 ### If you remember nothing else
 
-1. **Residential IP, or the fetch lies to you.**
-2. **Run pass 2.** A page left `provisional` is a page with its numbers withheld.
-3. **Read the diff before committing.** One race directory is normal; everything
-   changing is a bug.
-4. **Never make CI fetch.**
+1. **`make verify` before you push.** There is nothing else between a bad
+   replay and the live site.
+2. **The feed backfills.** A round that looked thin months ago may be complete
+   now. Delete its cached chunks and re-run before concluding otherwise.
+3. **Read the diff before committing.** The emit is a pure function: rebuilding
+   unchanged data must produce byte-identical files. Everything changing is a
+   serialisation bug, not a data update.
+4. **Never draw what is not there.** Every absence on this site is deliberate
+   and most of them were once a bug that drew something plausible instead —
+   see SPEC §6.6.

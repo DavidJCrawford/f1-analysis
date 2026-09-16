@@ -48,6 +48,39 @@ The boundary is enforced in the pipeline, not by good intentions. Good
 intentions fail on a Sunday night after a triple-header when one number is
 missing and jolpica has it.
 
+## 0. What the owner decided, and what it overrides
+
+**2026-09-16.** Three sources were reassigned out of build-time-only roles, and
+this document said the opposite until now while the site already shipped their
+data. Recording it rather than leaving the contradiction:
+
+> *"I will never commercialise this project so there's no need to worry about
+> rights and usage."* — the project owner, on being asked.
+
+On that basis **OpenF1, MultiViewer and TUMFTM supply published values.** The
+race replays (SPEC §6.6) are 21 MB of car positions from OpenF1; the circuit
+outlines, corner positions and start/finish lines are MultiViewer's; team
+colours are OpenF1's. None of this is compatible with the roles they were first
+assigned.
+
+What that decision does and does not cover:
+
+- **NonCommercial** (OpenF1, jolpica) is satisfied by the site being
+  non-commercial. This is a standing constraint, not a one-off: it forbids ever
+  monetising the site without removing that data first.
+- **ShareAlike** (OpenF1's SA, and ODbL on the OSM-derived centrelines) is a
+  condition on redistribution that non-commercial use does not discharge. The
+  site attributes but does not declare an onward licence. Unresolved, and the
+  honest statement is that it is unresolved rather than met.
+- **MultiViewer publishes no terms at all**, so there is nothing to comply with
+  and nothing to rely on. `/credits/` says exactly that rather than implying a
+  permission that was never given.
+- **jolpica stays `GAP_FILL`.** It is not used at all, so nothing turns on it.
+
+Attribution for all of the above lives at `/credits/`, linked from the home
+page. Removing that link would break CC BY 4.0 on F1DB and ODbL on the
+OSM-derived geometry — those two are licence conditions, not courtesy.
+
 ## 1. Role definitions
 
 | Role | Meaning | Permitted in published artifacts |
@@ -69,9 +102,9 @@ missing and jolpica has it.
 | FastF1 3.8.3 | MIT (code) | `TOOL` | — |
 | F1 live-timing static archive | F1 rights asserted | `DERIVED_ONLY` | Derived aggregates and downsampled series. **Never** raw `.jsonStream` payloads |
 | jolpica-f1 | CC BY-NC-SA 4.0 | `GAP_FILL` | Nothing |
-| OpenF1 | CC BY-NC-SA 4.0 | `CROSS_CHECK` | Nothing |
-| TUMFTM/racetrack-database | LGPL-3.0 | `CROSS_CHECK` | Nothing, pending a copyleft resolution |
-| MultiViewer | no terms published | `BLOCKED` | Nothing. Not fetched |
+| OpenF1 | CC BY-NC-SA 4.0 | `SPINE` **(reassigned 2026-09-16)** | Circuit geometry, car positions, speed, lap timing, team colours. The race replays are built from it |
+| TUMFTM/racetrack-database | LGPL-3.0 | `SPINE` **(reassigned)** | Centreline-derived outlines, with OSM attribution and onward ODbL |
+| MultiViewer | no terms published | `SPINE` **(reassigned)** | Circuit geometry, official corner positions, start/finish lines |
 | Copernicus GLO-30 | free, attribution | `DERIVED_ONLY` | Distant-terrain meshes only, never the track surface |
 
 ## 3. What "cross-check only" actually permits

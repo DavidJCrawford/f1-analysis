@@ -31,6 +31,11 @@ status: stable
 
 # OpenF1
 
+> **Coverage is not uniform.** What the `location` endpoint actually holds
+> across a season — and the `car_data` speed channel that stands in where it
+> holds nothing — is measured in
+> [OpenF1 position coverage in practice](openf1-position-coverage.md).
+
 OpenF1 is a REST API over the same Formula 1 timing feed that FastF1 parses, exposed as
 plain JSON with query-string filtering. Its role here is **build-time cross-check
 only** (SPEC §6.1): it is CC BY-**NC-SA** 4.0, so nothing it returns may be written into

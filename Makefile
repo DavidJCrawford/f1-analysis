@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit geo align outlines profile data replays build preview check banner clean
+.PHONY: help spine emit geo align outlines profile colours data replays verify build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -32,7 +32,10 @@ align: ## Solve the TUMFTM local frame against geographic space (slow; cached)
 outlines: ## Normalised outlines from the best geometry available (length-validated)
 	python3 pipeline/outlines.py
 
-data: spine emit align outlines profile ## Full data refresh
+colours: ## Each constructor's own colour, joined from the timing feed by car number
+	python3 pipeline/colours.py
+
+data: spine emit align outlines profile colours ## Full data refresh
 
 build: ## Build the site and its search index
 	cd $(SITE) && npm run build
@@ -48,6 +51,9 @@ clean:
 
 replays: ## Build race replays from timing-feed position data (slow; cached)
 	python3 pipeline/replay.py
+
+verify: ## Score every replay against the grid, the result and the lap count
+	python3 pipeline/verify_replay.py
 
 banner: ## Regenerate the README banner
 	python3 pipeline/banner.py

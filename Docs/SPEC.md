@@ -4,14 +4,18 @@
 every circuit, every team and every race is a designed essay with real data and
 a real 3D track.**
 
-- **Status:** Draft 1 — grounded in the research recorded in
-  [`knowledge/`](knowledge/index.md), which was fact-checked adversarially
-  (83 of ~252 initial research claims required correction; the corrected values
-  are what appear here).
-- **Date:** 2026-09-14
+- **Status:** Built and published, narrowed to the current season. The design
+  reasoning below is from Draft 1, grounded in the research recorded in
+  [`knowledge/`](knowledge/index.md) and fact-checked adversarially (83 of ~252
+  initial research claims required correction). Sections marked **BUILT**
+  describe what exists; the rest is still the plan it was written as, and §4.3
+  says which parts are dormant.
+- **Date:** 2026-09-14, revised 2026-09-16.
+- **Live:** https://davidjcrawford.github.io/f1-analysis/
 - **Deployment target:** GitHub Pages, personal account.
 - **Aesthetic reference:** [impeccable.style](https://impeccable.style)
-- **3D:** [three.js](https://github.com/mrdoob/three.js) r186
+- **3D:** [three.js](https://github.com/mrdoob/three.js) r186 — *not yet used.*
+  Everything drawn so far is SVG, or Canvas 2D for the race replay (§6.6).
 
 ---
 
@@ -131,11 +135,16 @@ That is roughly **2,400 pages at launch** and up to ~6,000 with driver pages
 and season-by-team cross-sections. This scale is the single biggest driver of
 the architecture decisions in §6 and §11.
 
+**BUILT: 86 pages,** because §4.3 narrowed the scope to one season. The
+emitted data still covers all 77 seasons; only what is published is narrowed.
+The architecture decisions that scale drove were kept — they cost nothing now
+and are what widening the scope would need.
+
 ### 4.3 Current scope — the current season only
 
 **Decided 2026-09-14.** The site covers **one season**, not the full archive:
-23 races, 23 circuits, 11 constructors, 63 pages, against the 1,520 the full
-corpus produces.
+23 races, 23 circuits, 11 constructors, 23 drivers — **86 pages**, against the
+1,520 the full corpus produces.
 
 This supersedes the archival-first sequencing in §16. It also means the
 coverage tiers in §4.2 are dormant: every race in scope is *modern* tier, so
@@ -188,6 +197,8 @@ be spectacular at 2026. The archival tier ships first (§16).
 
 ### 5.1 Routes
 
+The plan, written for the full archive:
+
 ```
 /                                   Home — current season, latest race, entry points
 /seasons/                           Index of 77 seasons
@@ -205,6 +216,42 @@ be spectacular at 2026. The archival tier ships first (§16).
 /methods/fuel-corrected-pace/       One method, with formula and worked example
 /about/  /data/  /colophon/
 ```
+
+**BUILT.** One season collapses several of those into each other, and a page
+that would hold one table was not worth keeping separate:
+
+```
+/                                   Home — championship, last round, next round,
+                                    and the circuit gallery in calendar order
+/races/                             Calendar, drivers' and constructors' tables
+/races/2026/9/                      Race page, with the replay (§6.6)
+/circuits/silverstone/              Circuit page — outline, corners, lap profile
+/teams/                             Index
+/teams/ferrari/                     Team page, line-up, championship record
+/drivers/                           The grid
+/drivers/lando-norris/              Driver page — career record, race by race
+/credits/                           Sources and the terms they come under
+/404
+```
+
+Departures from the plan, each with a reason:
+
+- **`/seasons/` is gone.** With one season in scope its index listed one row
+  and its page duplicated `/races/`. The survivor took the `/races/` URL, so
+  its address matches its name and trimming a race URL does not 404.
+- **`/circuits/` is gone.** Its content is the gallery on the home page; a
+  separate index of the same 23 outlines earned nothing.
+- **`/drivers/` arrived early.** It was Phase 2 in §16 and is built, because
+  F1DB carries the whole career record per driver and the emit step was
+  throwing it away.
+- **`/methods/` is not built.** The knowledge base is still `Docs/knowledge/`
+  and unpublished; §3's principle 6 is met by this document rather than by the
+  site. `/credits/` carries the attribution that `/colophon/` would have.
+- **Route shape.** Races are `/races/{year}/{round}/`, not by circuit slug —
+  round number is what the timing feed keys on, and it survives a calendar
+  moving a Grand Prix between circuits.
+- **Navigation is two entries**, Races and Teams. Circuits lives on the home
+  page and is reached from there; Drivers is reached from a team.
 
 **Slug policy.** Slugs derive from F1DB canonical IDs, never from display
 names. Ferrari stays `/teams/ferrari/` forever. Entities that renamed —
@@ -241,7 +288,7 @@ and the boundary is enforced in the pipeline, not by good intentions.**
 | **F1DB** | v2026.14.0 | CC BY 4.0 | **Canonical spine — redistributable.** Entities, results, standings, 1950–2026. |
 | **FastF1** | 3.8.3 (MIT, Py ≥3.10) | MIT tool; data from F1 archive | **Build-time only.** Telemetry, laps, position. Derived aggregates ship; raw streams do not. |
 | **jolpica-f1** | live | CC BY-**NC-SA** 4.0 | **Build-time gap-fill only. Never redistributed.** NC-SA would infect the site. |
-| **OpenF1** | 2023+ | CC BY-**NC-SA** 4.0 | Cross-check, **and published geometry** for circuits the MultiViewer dataset lacks. Non-commercial and share-alike accepted for this project. |
+| **OpenF1** | 2023+ | CC BY-**NC-SA** 4.0 | **Published.** Car positions and speed behind every race replay (§6.6), lap timing, team colours, and geometry for circuits MultiViewer lacks. Non-commercial accepted for this project; share-alike unresolved — see `knowledge/policies/source-roles.md` §0. |
 | **MultiViewer** | undocumented API | **no terms published** | **Primary geometry, start/finish and official corner positions** for 31 circuits. No terms are published; accepted for this project. |
 | **bacinger/f1-circuits** | 40 circuits | MIT | Circuit outlines — redistributable. |
 | **TUMFTM/racetrack-database** | 24 tracks (19 used) | **LGPL-3.0 over ODbL** | Centreline + width, **redistributed** as derived outlines for 19 circuits. OSM-derived, so OSM attribution and onward ODbL apply. |
@@ -320,6 +367,128 @@ its wasm binaries measure 35–41 MB, not the 6–18 MB commonly quoted.
 
 GitHub Pages serves **gzip only, never brotli** — verified by request. Emitting
 `.br` siblings is dead weight that counts against the 1 GB cap.
+
+**BUILT: 2 Hz, int16, planar, one file per race.** 14 races, 21.1 MB in all,
+the largest 2.2 MB. No Parquet and no Range requests — a race is one `.bin`
+fetched whole when the replay opens, which is simpler than either and inside
+the budget. Layout, in order: `x,y` as `int16` pairs per car per frame, then
+one byte per car per frame of laps-down, then one byte per frame of the lap the
+race is on. The manifest carries the offsets, the driver list, the centreline
+and everything in §6.6.
+
+### 6.6 The race replay — BUILT
+
+The one interactive thing on the site: a race, played back from where the cars
+actually were. Canvas 2D, not three.js.
+
+**What it draws.** Team-coloured discs on the circuit's own centreline, the
+camera following the leader or any car clicked in the running-order strip
+below. A standing start, pit stops, retirements, the chequer.
+
+**Running order comes from geometry, not from lap time.** The first attempt
+ordered cars by lap number plus the fraction of the lap time elapsed, which
+puts a car on a quicker lap ahead of one physically in front of it. Order is
+now taken from arc distance along the centreline. The test is the starting
+grid, which is known independently: 8 of 14 rounds reproduce it exactly and 26
+cars across the season are out of place, against an ordering that was
+essentially random before.
+
+**Laps are counted geometrically too,** by watching the arc fraction wrap, so
+the count and the order agree at the line. Two corrections were needed. Nearest
+point projection flips to the neighbouring stretch where a circuit runs back
+alongside itself, so the search is restricted to the stretch a car could have
+reached since the last frame. And a lap missed across a hole in the feed is
+lost for good, by a different amount for each car, so after any jump the count
+is re-anchored to the lap feed, which cannot drift.
+
+**Being a lap down is a matter of distance,** not of lap numbers. Mid-race most
+of the field reads one lower on the counter for no better reason than not
+having reached the line yet — at one point 21 of 22 cars showed "+1L" on lap 8.
+What is stored is distance behind the leader.
+
+**Cars out of the race are drawn as outlines,** dimmed, with PIT or OUT in the
+strip. Neither state is inferred from the shape of the data: the position feed
+stalls often enough that a car at full speed reads as stationary, and a first
+attempt at inferring it had 22 cars "stopping" at Hungary. Pit stops come from
+the pit feed, which knows when one happened, and geometry is used only to find
+its extent; retirements come from the classification.
+
+**Where the position feed fails.** Three failure modes, each handled rather
+than drawn:
+
+- *Placeholder positions.* Some rounds answer the first seconds with every car
+  on one point. The replay opens at the first frame where the field is in
+  distinct places.
+- *A feed that stops.* The replay ends where the positions do, rather than
+  running on an empty circuit. Gaps longer than a few seconds are never
+  interpolated across — doing so once drew fifty minutes of cars crawling in a
+  straight line at Monaco, a picture of nothing that happened.
+- *A race with almost no positions at all.* Monaco 2026 holds six and a half
+  minutes of a two-and-a-quarter-hour race. Its positions are reconstructed
+  from speed, which the same session records in full: integrate speed along the
+  centreline, close each lap against its own known duration so error cannot
+  accumulate, and anchor the first lap at its end because it begins on the grid
+  rather than at the line. Scored against a race that has both, this lands a
+  median 17 m from the truth on a 5,843 m lap. It cannot know where a car sits
+  across the track, so every car runs down the centreline — it shows a race,
+  not a duel, and the replay says so on screen.
+
+**Stoppages are kept but stepped over.** Monaco was red-flagged for 33 minutes.
+The frames are the race and stay, but playback passes over them and says how
+long it was; scrubbing in is left alone, because that is someone looking for
+it.
+
+**Verification.** `pipeline/verify_replay.py` scores every replay against
+things known independently of it — the starting grid, the classified result,
+and the lap count — and is the reason several of the above were found at all.
+Current: 8 of 14 grids exact, 6 of 14 closing orders exact, 0 cars out of place
+against the start line, 0 lap-counting problems.
+
+### 6.7 Circuit geometry — BUILT
+
+Outlines come from the best source that covers a track: 21 of this season's 23
+from the F1 timing feed via MultiViewer, one traced from a car's own telemetry
+where MultiViewer has none, one from TUMFTM. A 3% length gate rejects a
+mis-joined trace — it caught an Indianapolis oval being matched to the road
+course, and a Barcelona street circuit of two races being matched to Catalunya's
+thirty-six.
+
+**Corners are detected from curvature and deliberately not numbered.** Official
+turn numbers are a convention assigned by the circuit and the FIA, not a
+property of the shape: Monza's Variante Ascari is one complex numbered as three
+turns, which is why detection finds 9 features where the official count is 11.
+Re-running on nine times denser data still finds 9. Numbering derived sections
+would assert something the geometry cannot support.
+
+**A circuit has two start/finish lines, and both are drawn where they differ.**
+The finish line is placed opposite race control so a close finish can be judged
+by eye, and is what the lap counter runs on; the start line is at the front of
+the grid. That offset is why a first lap is not a full lap — Silverstone's is
+5,723 m of a 5,843 m circuit. Index 0 of the centreline is the finish line. The
+start line cannot be read from geometry at all, so it is measured from the grid
+that lines up behind it: half a slot ahead of pole, with the slot taken from
+the field rather than assumed, and only where the field is still in grid
+formation. 13 circuits have one.
+
+They are told apart by shape rather than colour, so neither needs a key: the
+chequer is the finish, because the chequer is the flag that ends a race, and
+the start is a plain painted bar, which is what it is on the tarmac. Each is
+named, but only when both are drawn.
+
+**Two marks only above 50 m apart.** Melbourne, Monaco and Montreal paint one
+line and use it for both. Measuring where the lap counter actually rolls over,
+across about a thousand crossings a circuit, puts that point anywhere from 11 m
+before index 0 to 28 m after — so a separation under roughly fifty metres is
+not distinguishable from none, and those three come out at 16, 18 and 49 m.
+8 of the 13 are clearly two, from Barcelona at 101 m to Monza at 310 m.
+
+**Draw in a coordinate space near 1:1.** Outlines arrive fitted to a unit box,
+and drawing them in one was a mistake: a 1.12-unit viewBox rendered at 440 px
+is a scale of 786, which leaves the track's own stroke four thousandths of a
+user unit wide. Everything the renderer derives in user space is then computed
+on numbers that small and multiplied back up, including the bounds it
+invalidates when a sibling changes — and the hover dot changes on every pointer
+move. Rounding invisible at 1:1 came back as missing pieces of the line.
 
 ---
 
@@ -772,6 +941,19 @@ designed essay per entity is ~1,500 pieces of prose.
 
 ## 16. Roadmap
 
+**Where it actually went.** §4.3 narrowed the site to the current season, which
+inverted this plan: the archival tier that was to ship first is not built, and
+the modern-tier treatment that was Phases 3–5 is what exists. What shipped, in
+order: the pipeline and design system; circuits with outlines, corners and lap
+profiles; races and teams; the race replay (§6.6); drivers; the two
+start/finish lines (§6.7). No three.js yet.
+
+Still unbuilt from below: the archival, timing and telemetry tiers (dormant
+under §4.3), 3D of any kind, `/methods/`, comparison tools, and season-by-team
+cross-sections.
+
+---
+
 **Phase 0 — Foundations.** Resolve §13 gating items (F1DB provenance,
 MultiViewer terms, disclaimer wording). Build the circuit-layout registry.
 Stand up the ingest pipeline and the design system in isolation.
@@ -798,22 +980,70 @@ pipeline before it is repeated.
 
 These are genuinely the user's call and are not assumed:
 
-1. **Domain and name.** Drives the trademark posture in §13.5.
-2. **Repository layout** — single repo, or site + data split? Recommendation:
-   **split**, from the start, because of the 1 GB cap.
-3. **Is the dark theme in scope for launch,** or is the instrument-panel
-   approach sufficient? Recommendation: **instrument panels only at launch.**
-4. **How much hand-written prose is realistic?** This sets the hero-circuit
-   count and therefore most of the 3D scope.
-5. **Is a CDN fallback (Cloudflare in front of Pages) acceptable,** or must it
-   stay pure GitHub Pages? This decides how much telemetry can ship.
+1. **Domain and name.** Still open. Published at
+   `davidjcrawford.github.io/f1-analysis/` on the personal account.
+2. ~~**Repository layout**~~ — **decided: single repo.** 21 MB of replays
+   against a 1 GB cap; the split was insurance against a scale §4.3 removed.
+3. ~~**Dark theme**~~ — **decided: instrument panels only,** as recommended.
+   Dark panels on a light page; there is no theme switch.
+4. **How much hand-written prose is realistic?** Still open, and still what
+   sets the 3D scope. Nothing on the site is hand-written prose today: every
+   page is generated from the data, and the one place prose would have gone —
+   driver biographies — is a career record instead, because inventing them was
+   the alternative.
+5. **Is a CDN fallback acceptable?** Not needed yet. Pure GitHub Pages, and the
+   payload is well inside the caps.
+
+**Raised since, and the user's call:**
+
+6. **Licence attribution.** F1DB is CC BY 4.0 and the circuit geometry is ODbL
+   via OpenStreetMap; both ask to be named wherever the work is published. The
+   footer carrying that was removed, and `/credits/` now carries it, linked
+   once from the home page. If that link should appear on every page instead,
+   it is a one-line change.
+7. **Widening the scope again.** §4.3 notes what a current-season site costs
+   against the differentiation thesis in §1. The switch is one line.
 
 ---
 
 ## Appendix — corrections carried into this spec
 
 Facts that a reasonable person would have got wrong, caught during
-verification. Recorded so they are not silently re-introduced:
+verification. Recorded so they are not silently re-introduced.
+
+**From building it (2026-09-15/16).** These were all got wrong first, in the
+code or in something I told the user, and corrected against evidence:
+
+- A Formula 1 circuit has **a start line and a finish line, and they are
+  usually different places.** The finish line sits opposite race control, often
+  at the back of the grid; the start line is at the front of it. The grid in
+  every photograph lines up behind the *start* line. Drawing the finish line
+  and calling it the start/finish line scattered the field around it — from
+  Montreal with the whole grid 207 m before, to Monza with it 306 m after.
+- **Grid slots are 8 m apart in Formula 1** (the FIA floor is 6 m). Measured:
+  7.5–8.3 m at every round, which is how the positions were confirmed sound
+  while the line beside them was not.
+- **Melbourne, Monaco and Montreal use one physical marker for both.** Found by
+  the user, and confirmed independently: they are our three smallest
+  separations at 16, 18 and 49 m, against 101–310 m for the rest.
+- **A first lap is not a full lap,** and the distance between the two lines
+  predicts by how much. Silverstone's is 5,723 m of 5,843. Montreal is the
+  exception in scope, its finish line ahead of the grid, so its first lap is
+  slightly *longer* than a lap.
+- **The timing feed backfills.** Melbourne's opening was placeholder when
+  fetched and is real data now. A cache is not a final answer; refetching is
+  worth doing before concluding data does not exist.
+- **`<hr>` is `overflow: hidden`** in the browser's own stylesheet, which
+  silently clips a pseudo-element laid on it.
+- **An SVG drawn in a sub-unit coordinate space rasterises badly** under
+  partial repaint — see §6.7. It reads as a browser bug and is not one.
+- **Anomalies in data about real events are worth a web search**, not a
+  plausible-sounding explanation. Monaco's replay was described as an anomalous
+  race before checking; the race *was* red-flagged, but that had nothing to do
+  with the symptom, which was our own interpolation drawing across a
+  fifty-minute hole.
+
+**From the original research:**
 
 - 2026 power units produce **~750 kW total** (400 kW ICE + 350 kW electrical),
   not 400 kW total. Downforce reduction is ~15%.

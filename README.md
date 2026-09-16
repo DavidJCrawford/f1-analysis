@@ -10,7 +10,7 @@
 ![Status](https://img.shields.io/badge/status-2026_season-1f1f1f?style=flat-square)
 ![Data](https://img.shields.io/badge/data-F1_timing_feed-1f1f1f?style=flat-square)
 ![Astro](https://img.shields.io/badge/Astro-7-1f1f1f?style=flat-square&logo=astro&logoColor=white)
-![three.js](https://img.shields.io/badge/three.js-r186-1f1f1f?style=flat-square&logo=threedotjs&logoColor=white)
+![Replays](https://img.shields.io/badge/replays-14_races-1f1f1f?style=flat-square)
 
 </div>
 
@@ -31,35 +31,50 @@ The opposite of a live-timing dashboard, deliberately.
 | Rounds | 23 |
 | Circuits | 23 |
 | Teams | 11 |
-| Circuits with exact start/finish from the timing feed | 23 / 23 |
-| Circuits with official corner positions | 22 / 23 |
+| Drivers | 23 |
+| Races you can replay | 14 |
+| Circuits with official corner positions | 21 / 23 |
 
-**Race replay.** Every completed round plays back from raw position data — all 22
-cars at 2 Hz, as coloured dots on the real circuit, with the camera following the
-leader or any car you pick from the running order. Pause, rewind, scrub, and change
-speed.
+**Race replay.** Every completed round plays back from the timing feed — all 22 cars
+at 2 Hz as coloured dots on the real circuit, the camera following the leader or any
+car you pick from the running order. Pause, rewind, scrub, change speed. Running
+order and lap counts come from where a car actually is on the track, not from how far
+through its lap time it is, and each replay is scored against the starting grid, the
+classified result and the lap count before it ships.
+
+Cars in the pits or out of the race are drawn as outlines rather than discs. Monaco's
+positions are missing from the feed almost entirely, so they are reconstructed from
+speed — accurate to a median 17 m, and the replay says so on screen.
 
 **Circuit pages** carry the track drawn from feed geometry, its official corners
 highlighted along their full length, an unrolled curvature profile of the lap, and
 where the circuit sits against the rest of the calendar for length and turn count.
+A circuit has a start line and a finish line, and both are drawn where they are far
+enough apart to tell apart — 8 of the 13 raced so far, from 101 m at Barcelona to
+310 m at Monza. Melbourne, Monaco and Montreal paint one line and use it for both.
 
-The architecture still supports the full 1950–2026 archive — 1,172 races, 78
-circuits, 1,520 pages. It is narrowed to one season by a single switch in
+86 pages. The architecture still supports the full 1950–2026 archive — 1,172 races,
+78 circuits, 1,520 pages — narrowed to one season by a single switch in
 [`scope.ts`](site/src/lib/scope.ts); see [SPEC §4.3](Docs/SPEC.md).
 
 ## Data
 
-Every source is confined to a declared role, and the boundary is enforced in the
-pipeline — not by good intentions. Non-commercial sources never reach a published
-artifact.
+Nothing here is measured by this site. Every figure is counted from data somebody
+else gathered, and each source is named with what it actually supplies.
 
-| Source | Licence | Role |
+| Source | Licence | What it supplies |
 |:--|:--|:--|
-| [F1DB](https://github.com/f1db/f1db) | CC BY 4.0 | **Redistributable spine** — entities, results, 1950–2026 |
-| [FastF1](https://github.com/theOehrly/Fast-F1) | MIT | Build-time — telemetry, laps, position |
-| [jolpica-f1](https://github.com/jolpica/jolpica-f1) | CC BY-NC-SA | Build-time gap-fill — **never** redistributed |
-| [OpenF1](https://openf1.org) | CC BY-NC-SA | Build-time cross-check — **never** redistributed |
-| [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT | Circuit outlines — including this README's banner |
+| [F1DB](https://github.com/f1db/f1db) | CC BY 4.0 | Results, standings, entities and career records, 1950–2026 |
+| [OpenF1](https://openf1.org) | CC BY-NC-SA | Car positions, speed and lap timing — the replays — and team colours |
+| [MultiViewer](https://multiviewer.app) | no terms published | Circuit geometry, official corner positions, finish lines |
+| [TUMFTM](https://github.com/TUMFTM/racetrack-database) | LGPL-3.0 over ODbL | Centrelines where the feed has none. OpenStreetMap-derived |
+| [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT | Outlines where neither covers — and this README's banner |
+
+This is a personal, non-commercial project, which is what makes the NonCommercial
+sources usable. Share-alike is **unresolved rather than met**, and said so plainly in
+[the policy](Docs/knowledge/policies/source-roles.md); MultiViewer publishes no terms
+at all, which is named rather than papered over. Attribution lives at
+[`/credits/`](https://davidjcrawford.github.io/f1-analysis/credits/).
 
 <br>
 
@@ -71,41 +86,47 @@ The project is grounded in a spec and a knowledge base, both written before any 
 |:--|:--|
 | [**SPEC.md**](Docs/SPEC.md) | Promise, scope, architecture, design system, risks, open decisions |
 | [**RUNBOOK.md**](Docs/RUNBOOK.md) | Post-race ingest, triple-headers, failure playbooks |
-| [**Knowledge base**](Docs/knowledge/index.md) | 65 concept documents in [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) v0.2 — every source, metric and decision |
+| [**Knowledge base**](Docs/knowledge/index.md) | 78 concept documents in [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) v0.2 — every source, metric and decision |
 
 Findings were researched in parallel and then adversarially fact-checked. **83 of ~252
-first-pass claims required correction** before anything was written down; the corrected
-values are what ship. Published methods at `/methods/` mean every derived number on the
-site links to the formula that produced it.
+first-pass claims required correction** before anything was written down. Building it
+corrected more, and those are recorded too — that a circuit has two start/finish lines
+and the grid sits behind the *start* one, that the timing feed backfills so a cache is
+never a final answer, and that an anomaly in data about a real event is worth a search
+rather than a plausible-sounding story.
 
 <br>
 
 ## Build
 
 ```bash
-make data      # F1DB release -> canonical JSON -> geometry -> curvature profiles
-make replays   # race position data from the timing feed (slow first run, cached)
+make data      # F1DB release -> canonical JSON -> geometry -> profiles -> colours
+make replays   # race positions from the timing feed (slow first run, cached)
+make verify    # score every replay against the grid, the result and the lap count
 make build     # Astro build + Pagefind index
 make preview
 ```
 
-Telemetry ingest, when it lands, keeps a human in the loop permanently: F1's archive
-blocks datacenter IPs and returns `200`s with empty bodies, so CI can never fetch.
-Ingest runs locally on a residential connection and its output is committed as data —
-see [RUNBOOK.md](Docs/RUNBOOK.md).
+Every fetch is cached, so re-running costs nothing. `make verify` is the only gate
+between a bad replay and the live site — pushing `main` deploys. Ingest runs locally
+and its output is committed as data; see [RUNBOOK.md](Docs/RUNBOOK.md).
 
 <br>
 
 ## Status
 
-**Phase 1 — archival tier.** 1,172 races, 77 seasons, 78 circuits and
-187 constructors render from the F1DB spine; 1,520 pages build in under a second.
-581 of those races predate lap-by-lap timing entirely, which is the point of the
-tier system: the site has to be good at 1962 before it is allowed to be spectacular
-at 2026.
+**Live**, at [davidjcrawford.github.io/f1-analysis](https://davidjcrawford.github.io/f1-analysis/).
+86 pages build in under a second: the calendar and both championships, 23 circuits,
+11 teams, 23 drivers, and 14 races you can replay.
 
-Next: lap charts and race traces for the timing tier, then telemetry and the first
-hero circuit in 3D.
+Every replay is scored before it ships. Currently 8 of 14 reproduce the starting grid
+exactly, 6 of 14 finish in the classified order, and zero have a car out of place
+against the start line or a lap miscounted — the last two being faults rather than
+tolerances.
+
+Next: lap charts and race traces, the archival and timing tiers the scope switch
+currently holds back, and the 3D that gave the spec its three.js section and has not
+been written yet.
 
 <br>
 

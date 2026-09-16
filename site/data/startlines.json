@@ -19,6 +19,10 @@
   "frac": 0.023354,
   "fromRound": 4
  },
+ "monaco": {
+  "frac": 0.994381,
+  "fromRound": 6
+ },
  "montreal": {
   "frac": 0.988694,
   "fromRound": 5

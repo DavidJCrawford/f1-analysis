@@ -25,6 +25,7 @@ const drivers = (manifest.drivers ?? []) as
       <span class="title">{label}</span>
     </div>
     <div class="readout mono num" data-readout>—</div>
+    <p class="note ui" data-note hidden></p>
     <button class="icon" type="button" data-replay-close aria-label="Close replay">✕</button>
   </header>
 
@@ -138,6 +139,17 @@ const drivers = (manifest.drivers ?? []) as
   }
   .scrub { flex: 1; accent-color: var(--ks-kinpaku); min-width: 120px; }
 
+  /* Said, not hidden: a stoppage skipped, or a race whose positions had to be
+     worked out rather than read. Sits under the clock, out of the picture. */
+  .note {
+    position: absolute; top: 46px; right: clamp(14px, 3vw, 28px);
+    margin: 0; padding: 5px 10px;
+    background: var(--ks-instrument-deep); border: 1px solid var(--ks-instrument-rule);
+    border-radius: 4px; color: var(--ks-instrument-muted);
+    font-size: 11px; letter-spacing: .04em; pointer-events: none;
+  }
+  .note[hidden] { display: none; }
+
   .strip {
     display: flex; gap: 6px; list-style: none; margin: 0;
     padding: 12px clamp(14px, 3vw, 28px) 16px;
@@ -194,6 +206,8 @@ const drivers = (manifest.drivers ?? []) as
     drivers: Driver[]; track: number[][];
     spans?: number[][];
     start?: { x: number; y: number; tx: number; ty: number; frac?: number } | null;
+    derived?: boolean;
+    pauses?: number[][];
   };
 
   const root = document.querySelector<HTMLElement>('[data-replay]');
@@ -207,6 +221,7 @@ const drivers = (manifest.drivers ?? []) as
     const scrub = root.querySelector<HTMLInputElement>('[data-scrub]')!;
     const speedSel = root.querySelector<HTMLSelectElement>('[data-speed]')!;
     const readout = root.querySelector<HTMLElement>('[data-readout]')!;
+    const note = root.querySelector<HTMLElement>('[data-note]')!;
     const loading = root.querySelector<HTMLElement>('[data-loading]')!;
     const countdown = root.querySelector<HTMLElement>('[data-countdown]')!;
     const playBtn = root.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -518,14 +533,49 @@ const drivers = (manifest.drivers ?? []) as
       if (playing) {
         const dt = Math.min(0.25, (now - last) / 1000);
         frame += (dt * Number(speedSel.value) / man.step) * dir;
+        frame = pastStoppage(frame);
         if (frame >= man.frames - 1) { frame = man.frames - 1; setPlaying(false); }
         if (frame <= 0) { frame = 0; setPlaying(false); }
         paint();
       } else if (camReady && Math.hypot(camTX - camX, camTY - camY) > 2) {
         paint();                       // let the camera finish settling
       }
+      if (flashUntil && now > flashUntil) settle();
       last = now;
       raf = requestAnimationFrame(tick);
+    }
+
+    /**
+     * A stopped race is still the race, so the frames are kept and the clock
+     * keeps them — but nobody wants to watch an empty circuit for three minutes
+     * while thirty-three go by at ten times speed. Playback steps over a
+     * stoppage and says how long it was; scrubbing into one is left alone,
+     * because that is someone looking for it.
+     */
+    function pastStoppage(f: number): number {
+      for (const [a, b] of man.pauses ?? []) {
+        if (f > a && f < b) {
+          const mins = Math.round((b - a) * man.step / 60);
+          flash(`Race stopped · ${mins} min`);
+          return dir > 0 ? b : a;
+        }
+      }
+      return f;
+    }
+
+    // A standing note says something true of the whole replay and stays up; a
+    // flash says something that just happened and gives way back to it.
+    let standing = '';
+    let flashUntil = 0;
+    function flash(text: string) {
+      note.textContent = text;
+      note.hidden = false;
+      flashUntil = performance.now() + 2600;
+    }
+    function settle() {
+      note.textContent = standing;
+      note.hidden = !standing;
+      flashUntil = 0;
     }
 
     function setPlaying(v: boolean) {
@@ -583,6 +633,8 @@ const drivers = (manifest.drivers ?? []) as
       resize();
       await load();
       frame = 0; zoom = 4.5; focus = -1; camReady = false; stripKey = '';
+      standing = man.derived ? 'Positions from speed — the feed recorded none' : '';
+      settle();
       paint();
       playBtn.focus();
       if (!reduced && await runCountdown()) { dir = 1; setPlaying(true); }

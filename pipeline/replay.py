@@ -9,6 +9,7 @@ cheaper and closer to how the order is actually defined.
 Raw API responses are cached under .cache/openf1 so re-runs cost nothing.
 """
 from __future__ import annotations
+import bisect
 import json, math, struct, sys, time, urllib.request, urllib.error
 import datetime as dt
 from pathlib import Path
@@ -46,6 +47,108 @@ def api(path: str, key: str) -> list:
 
 def iso(t: dt.datetime) -> str:
     return t.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def from_speed(session_key: int, nums: list[int], t0, laps: list[dict],
+               circuit_id: str, span: float) -> dict[int, list]:
+    """Positions worked out from speed, for a race whose position feed has none.
+
+    Monaco 2026 is the case: the feed holds six and a half minutes of positions
+    out of two and a quarter hours, and returns nothing for the rest. It does
+    hold speed for the whole race, at the same rate, and speed and a centreline
+    are enough — integrate one along the other and a car is placed on the track.
+
+    Each lap is worked separately and closed against its own known duration, so
+    error cannot accumulate across a race: a lap begins and ends at the line
+    whatever the integration did in between. The first lap is the exception,
+    anchored at its end, because it begins on the grid rather than at the line.
+
+    Scored against a race that has both, this lands within about seventeen
+    metres of where the car really was — a few car lengths on a lap of several
+    kilometres. What it cannot know is where a car sits across the track, so
+    every car runs down the centreline: this shows a race, not a duel.
+    """
+    try:
+        from geo import load_centrelines
+        cl = load_centrelines().get(circuit_id)
+    except Exception as e:
+        print(f"    no centreline to place cars on: {e}")
+        return {}
+    if not cl or not cl["source"].startswith("F1 timing"):
+        print("    centreline is not in the timing feed's own coordinates")
+        return {}
+
+    pts = cl["pts"]
+    seg = [math.hypot(pts[(i + 1) % len(pts)][0] - pts[i][0],
+                      pts[(i + 1) % len(pts)][1] - pts[i][1]) for i in range(len(pts))]
+    cum = [0.0]
+    for d in seg:
+        cum.append(cum[-1] + d)
+    LAP = cum[-1] or 1.0
+
+    def at(arc: float) -> tuple[float, float]:
+        a = arc % LAP
+        j = bisect.bisect_right(cum, a) - 1
+        j = min(max(j, 0), len(pts) - 1)
+        u = (a - cum[j]) / seg[j] if seg[j] else 0.0
+        ax, ay = pts[j]
+        bx, by = pts[(j + 1) % len(pts)]
+        return ax + (bx - ax) * u, ay + (by - ay) * u
+
+    # Speed for the whole field, in the same chunks the positions would use.
+    speed: dict[int, list] = {n: [] for n in nums}
+    for c in range(int(span // CHUNK) + 1):
+        a = t0 + dt.timedelta(seconds=c * CHUNK)
+        b = min(t0 + dt.timedelta(seconds=span), a + dt.timedelta(seconds=CHUNK))
+        for r in api(f"car_data?session_key={session_key}&date>={iso(a)}&date<={iso(b)}",
+                     f"cd_{session_key}_{c}"):
+            n, v = r.get("driver_number"), r.get("speed")
+            if n in speed and v is not None:
+                speed[n].append((dt.datetime.fromisoformat(r["date"]), float(v)))
+    for n in speed:
+        speed[n].sort()
+    have = sum(1 for n in nums if len(speed[n]) > 500)
+    print(f"    speed for {have}/{len(nums)} cars")
+    if have < 2:
+        return {}
+
+    by_driver: dict[int, list] = {}
+    for l in laps:
+        if l.get("date_start") and l.get("lap_duration"):
+            by_driver.setdefault(l["driver_number"], []).append(l)
+
+    out: dict[int, list] = {n: [] for n in nums}
+    for n in nums:
+        trace = speed[n]
+        if len(trace) < 500:
+            continue
+        clock = [t for t, _ in trace]
+        for l in sorted(by_driver.get(n, []), key=lambda x: x["lap_number"]):
+            a = dt.datetime.fromisoformat(l["date_start"])
+            b = a + dt.timedelta(seconds=l["lap_duration"])
+            i, j = bisect.bisect_left(clock, a), bisect.bisect_right(clock, b)
+            win = trace[i:j]
+            if len(win) < 20:
+                continue
+            run, acc = 0.0, [0.0]
+            for k in range(1, len(win)):
+                gap = (win[k][0] - win[k - 1][0]).total_seconds()
+                if gap <= 0 or gap > 5:
+                    acc.append(run); continue
+                run += (win[k][1] + win[k - 1][1]) / 2 / 3.6 * gap
+                acc.append(run)
+            if run <= 0:
+                continue
+            first = l["lap_number"] <= 1
+            for (t, _), d in zip(win, acc):
+                # A lap ends at the line. Later laps start there too; the first
+                # starts on the grid, so it is measured back from its end.
+                arc = (LAP - (run - d)) if first else (d / run) * LAP
+                x, y = at(arc)
+                out[n].append(((t - t0).total_seconds(), x, y))
+    for n in out:
+        out[n].sort()
+    return out
 
 
 def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None:
@@ -94,6 +197,21 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                                    r["x"] / 10.0, r["y"] / 10.0))
     for n in samples:
         samples[n].sort()
+
+    # How much of the race the positions actually cover. A race whose feed holds
+    # only a few minutes of a couple of hours cannot be drawn from them, but it
+    # can be worked out from speed, which is recorded whether or not the
+    # positions are — see from_speed above.
+    reach = sum(1 for n in nums if len(samples[n]) > 100)
+    seen = sorted(pt[0] for n in nums for pt in samples[n][:1] + samples[n][-1:])
+    covered = (seen[-1] - seen[0]) if len(seen) > 1 else 0.0
+    derived = False
+    if reach < 2 or covered < span * 0.5:
+        print(f"    positions cover {covered / max(span, 1) * 100:.0f}% of the race"
+              f"; working the rest out from speed")
+        rebuilt = from_speed(session_key, nums, t0, laps, circuit_id, span)
+        if sum(1 for n in nums if len(rebuilt.get(n, [])) > 100) >= 2:
+            samples, derived = rebuilt, True
 
     # The feed emits occasional rows far outside the circuit — a garage or pit
     # coordinate, or plain noise. Left in they stretch the bounding box, which
@@ -390,7 +508,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         # full lap further on.
         gp = [q[0] for q in prog]
         ahead = max(gp)
-        leadlap[f] = min(255, max(0, int(math.floor(ahead)) + 1))
+        # A race is on lap one from the moment it starts. Where the grid sits
+        # behind the line the arithmetic gives zero, which is not a lap number.
+        leadlap[f] = min(255, max(1, int(math.floor(ahead)) + 1))
         for ci in range(len(nums)):
             downs[f][ci] = min(255, max(0, int(math.floor(ahead - gp[ci]))))
 
@@ -529,6 +649,36 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                 a -= 1
             mark(ci, a, frames - 1, STOPPED)
 
+    # ── stoppages ───────────────────────────────────────────────────────────
+    # A race can be stopped, and Monaco 2026 was, for thirty-three minutes while
+    # a broken kerb at Turn 19 was seen to. The frames are kept — they are the
+    # race — but they are recorded so playback can pass over them instead of
+    # showing an empty circuit for three minutes at ten times speed.
+    STOPPED_KMH, LEAST = 5.0, int(60 / STEP)
+    pauses: list[list[int]] = []
+    if frames > LEAST * 2:
+        run = 0
+        for f in range(frames - 1):
+            moving = []
+            for ci in range(len(nums)):
+                if xs[f][ci] == ABSENT or xs[f + 1][ci] == ABSENT:
+                    continue
+                moving.append(math.hypot(xs[f + 1][ci] - xs[f][ci],
+                                         ys[f + 1][ci] - ys[f][ci]) / STEP * 3.6)
+            moving.sort()
+            still = moving and moving[len(moving) // 2] < STOPPED_KMH
+            if still and len(moving) >= 5:
+                run += 1
+            else:
+                if run >= LEAST:
+                    pauses.append([f - run, f])
+                run = 0
+        if run >= LEAST:
+            pauses.append([frames - 1 - run, frames - 1])
+    for a, b in pauses:
+        print(f"    race stopped for {(b - a) * STEP / 60:.0f} min at "
+              f"{a * STEP / 60:.0f} min; playback will pass over it")
+
     # Spans, not a byte per car per frame: a car is racing almost all the time,
     # so the whole season's worth of this fits in a few kilobytes of manifest.
     spans: list[list[int]] = []
@@ -574,6 +724,11 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         "scale": round(scale, 6), "cx": round(cx, 2), "cy": round(cy, 2),
         "posOffset": pos_off, "lapOffset": lap_off, "leadOffset": lead_off,
         "bytes": len(buf),
+        # Whether the cars are where the feed saw them, or where their own speed
+        # says they must have been. Said on the page rather than left implied.
+        "derived": derived,
+        # [fromFrame, toFrame] stretches where the whole field is stopped.
+        "pauses": pauses,
         "track": track,
         # [car, firstFrame, lastFrame, 1 = in the pits, 2 = stopped on track]
         "spans": spans,

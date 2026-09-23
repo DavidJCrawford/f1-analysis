@@ -512,6 +512,23 @@ published alongside and was not taken: the replay's instrument panel is the only
 dark surface here, and it already tells cars apart by the team's own colour, so a
 mark there would crowd a chip to repeat what it says.
 
+**The cars** are the library's side-on photograph of each 2026 car, one per
+constructor and none per driver: both cars a team enters are the same car, and
+the library publishes it once. So a car appears on a team's own page and nowhere
+else — eleven on the index would cost **600 KB to say what eleven marks already
+say in twelve**.
+
+Normalised for width, which is the opposite of the marks and for the opposite
+reason: the marks share no proportion and the cars share almost everything, so
+setting a width sets the height too, and two cars compared across two pages are
+compared as cars rather than as crops. They arrive padded unevenly — Haas and
+Williams carry a margin the others do not — and the same `e_trim` the marks use
+lands all eleven on 4.48:1 at the same ride height.
+
+1280px wide, which is a little under twice the 760 a car is drawn at; the edge of
+a cutout wants the extra pixels and a true 2x would be 160 KB each to gain very
+little. 57 KB on average, and a page loads one.
+
 ### 6.7 Circuit geometry — BUILT
 
 Outlines come from the best source that covers a track: 21 of this season's 23

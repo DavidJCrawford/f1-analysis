@@ -1,0 +1,42 @@
+---
+/**
+ * A constructor's car, side on.
+ *
+ * One per team rather than one per driver: both cars a team enters are the same
+ * car, and Formula 1 publishes it once. So this belongs on a team's own page and
+ * not on the index — eleven of them there would cost 600 KB to say what eleven
+ * marks already say in twelve. See pipeline/marks.py.
+ *
+ * Trimmed to its ink before it was fetched, which puts every team on the same
+ * 4.48:1 and the same ride height, so two cars compared across two pages are
+ * compared as cars and not as crops.
+ *
+ * Eager, not lazy: this is the first thing under the headline and the only
+ * picture on the page, so deferring it would draw the page and then move it.
+ */
+import { carShape } from '@lib/data';
+import { u } from '@lib/url';
+
+interface Props { id: string; name?: string; class?: string; }
+const { id, name = '', class: cls = '' } = Astro.props;
+const shape = carShape(id);
+---
+{shape && (
+  <img
+    class:list={['team-car', cls]}
+    src={u(`/cars/${id}.webp`)}
+    alt={`The ${name} car, side on`}
+    width={shape[0]}
+    height={shape[1]}
+    decoding="async"
+  />
+)}
+
+<style>
+  /* Capped well short of the measure. At full width the car would be 273px tall
+     and would read as a banner; at 760 it sits under the name at about the
+     weight of the stats below it, which is what it is worth. */
+  .team-car {
+    display: block; width: 100%; max-width: 760px; height: auto;
+  }
+</style>

@@ -7,6 +7,7 @@ import {
   teamColour, driverSeasons,
 } from '@lib/data';
 import TeamMark from '@components/TeamMark.astro';
+import TeamCar from '@components/TeamCar.astro';
 import { u } from '@lib/url';
 import { int, pts, yearSpan } from '@lib/format';
 
@@ -28,6 +29,8 @@ const lineUp = constructorDrivers(c.id).map((d) => ({ d, season: driverSeasons(d
       <h1 class="headline">{c.name}</h1>
     </div>
     <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
+
+    <TeamCar id={c.id} name={c.name} class="car" />
 
     <hr class={colour ? 'rule accent' : 'rule'} style={`margin-top:2.4rem${colour ? `;--team:${colour}` : ''}`} />
     <div class="stats">
@@ -103,6 +106,10 @@ const lineUp = constructorDrivers(c.id).map((d) => ({ d, season: driverSeasons(d
   .titling { display: flex; align-items: center; gap: .7em; margin-top: .3em; }
   .titling .headline { margin: 0; }
   .titling :global(.crest) { max-width: 5.5em; }
+
+  /* The car sits between the name and the record, which is where a reader has
+     just learnt whose car it is and not yet started on the numbers. */
+  :global(.car) { margin-top: clamp(20px, 3vw, 34px); }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
 

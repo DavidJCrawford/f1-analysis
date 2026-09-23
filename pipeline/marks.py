@@ -53,6 +53,23 @@ and the only sources are a commercial infographics agency and press photography,
 neither of which this site is in a position to take from. A number is the nearest
 published thing that belongs to the driver rather than the team.
 
+**The cars** are the one image here that is neither a mark nor a person. The
+library publishes a side-on cutout of each 2026 car, facing right, which is the
+elevation a team's own launch shot is taken at and the one a reader can compare
+across eleven teams. They arrive padded unevenly — Haas and Williams carry a
+margin the others do not — so they are trimmed to their ink like the marks,
+which lands every one of them on the same 4.48:1 and the same ride height.
+
+One car per constructor, not per driver: both cars a team enters are the same
+car, and the library publishes it once. So it belongs on a team's own page and
+nowhere else — eleven of them on the index would cost 600 KB to say what eleven
+marks already say in twelve.
+
+Width is normalised rather than height, which is the opposite of the marks and
+for the opposite reason: the marks have no common proportion and the cars have
+almost nothing else, so setting a width sets the height too, and a reader
+comparing two teams is comparing the cars and not the crop.
+
 Pillow is needed only to trim the wordmark, which is why this is a one-off step
 rather than part of `make data` — the rest of the pipeline stays dependency-free.
 
@@ -87,6 +104,7 @@ TEAMS = {
 F1_MEDIA_BASE = "https://media.formula1.com/image/upload"
 F1_MEDIA_PATH = "v1740000001/common/f1/2026"
 WORDMARK = "https://a.espncdn.com/i/teamlogos/leagues/500/f1.png"
+CARS = ROOT / "site" / "public" / "cars"
 
 
 def fetch(url: str) -> bytes:
@@ -269,6 +287,48 @@ def headshots() -> int:
     return len(have)
 
 
+# Wide enough to be a picture and no wider. The car is drawn at most 760px
+# across on a team's page, so 1280 is a little under twice that — the edge of a
+# cutout wants the extra pixels, and 2x would be 160 KB to gain very little.
+CAR_WIDTH = 1280
+
+
+def cars() -> int:
+    """One side-on car per constructor, trimmed to its ink — see the note above."""
+    import json
+
+    CARS.mkdir(parents=True, exist_ok=True)
+    got = 0
+    for cid, slug in TEAMS.items():
+        dest = CARS / f"{cid}.webp"
+        if dest.exists() and dest.stat().st_size:
+            got += 1
+            continue
+        try:
+            dest.write_bytes(fetch(
+                f"{F1_MEDIA_BASE}/e_trim/c_fit,w_{CAR_WIDTH}/q_auto/"
+                f"{F1_MEDIA_PATH}/{slug}/2026{slug}carright.webp"))
+            got += 1
+        except Exception as e:
+            print(f"  {cid}: {e}")
+    shapes = {}
+    for cid in TEAMS:
+        f = CARS / f"{cid}.webp"
+        if not f.exists():
+            continue
+        try:
+            from PIL import Image
+            with Image.open(f) as im:
+                shapes[cid] = list(im.size)
+        except Exception:
+            shapes[cid] = [CAR_WIDTH, round(CAR_WIDTH / 4.48)]
+    (ROOT / "site" / "data" / "cars.json").write_text(
+        json.dumps(shapes, indent=1, sort_keys=True) + "\n")
+    total = sum(p.stat().st_size for p in CARS.glob("*.webp"))
+    print(f"  {len(shapes)} cars, {total / 1024:.0f} KB in all")
+    return len(shapes)
+
+
 def wordmark() -> int:
     """The F1 wordmark, trimmed to its ink and set on the site's own ground.
 
@@ -306,6 +366,7 @@ def main() -> int:
     print("marks")
     n = teams()
     wordmark()
+    cars()
     headshots()
     numbers()
     return 0 if n else 1

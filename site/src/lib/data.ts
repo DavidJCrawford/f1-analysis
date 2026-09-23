@@ -139,6 +139,12 @@ export const markShape = (id: string): [number, number] | null =>
   ((marks ??= loadMaybe<Record<string, [number, number]>>('marks.json') ?? {}))[id] ?? null;
 let marks: Record<string, [number, number]> | null = null;
 
+/** A constructor's car as [width, height], or null where there is none. One
+ *  car per team, not per driver — see pipeline/marks.py. */
+export const carShape = (id: string): [number, number] | null =>
+  ((cars ??= loadMaybe<Record<string, [number, number]>>('cars.json') ?? {}))[id] ?? null;
+let cars: Record<string, [number, number]> | null = null;
+
 /** Where the grid lines up, as a fraction of the lap from the finish line.
  *  Measured from a race's own grid, so only circuits that have held one this
  *  season have it — see pipeline/replay.py. */

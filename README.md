@@ -69,11 +69,12 @@ else gathered, and each source is named with what it actually supplies.
 | [MultiViewer](https://multiviewer.app) | no terms published | Circuit geometry, official corner positions, finish lines |
 | [TUMFTM](https://github.com/TUMFTM/racetrack-database) | LGPL-3.0 over ODbL | Centrelines where the feed has none. OpenStreetMap-derived |
 | [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT | Outlines where neither covers — and this README's banner |
-| Formula 1 media library · ESPN | **trademarks, no licence** | The constructors' marks and the championship's wordmark |
+| Formula 1 media library · ESPN | **trademarks, no licence** | The constructors' marks, the championship's wordmark, the drivers' portraits |
 
-The marks are trademarks of the constructors and of Formula One Licensing BV. No
-licence covers them and none is claimed; they are reproduced to say which team is
-which, on a site that says on its face that it is unofficial.
+The marks are trademarks of the constructors and of Formula One Licensing BV, and
+the portraits are photographs of people — a different thing again. No licence
+covers either and none is claimed; they are reproduced to say who is who, on a
+site that says on its face that it is unofficial.
 
 This is a personal, non-commercial project, which is what makes the NonCommercial
 sources usable. Share-alike is **unresolved rather than met**, and said so plainly in

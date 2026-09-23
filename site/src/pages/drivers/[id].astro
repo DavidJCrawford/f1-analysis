@@ -5,6 +5,7 @@ import Stat from '@components/Stat.astro';
 import {
   drivers, driverById, driverSeasons, driverResults, teamColour, circuit,
 } from '@lib/data';
+import DriverFace from '@components/DriverFace.astro';
 import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts, shortDate, longDate } from '@lib/format';
@@ -41,8 +42,13 @@ const seasonPoints = years[0]?.points ?? null;
       Driver · {d.nationality}
       {d.number != null && <> · <span class="num">#{d.number}</span></>}
     </p>
-    <h1 class="headline" style="margin-top:.3em">{d.name}</h1>
-    <p class="lead muted" style="margin-top:.7em">{d.fullName}</p>
+    <div class="titling">
+      <DriverFace id={d.id} size={84} small={false} colour={colour} name={d.name} />
+      <div>
+        <h1 class="headline">{d.name}</h1>
+        <p class="lead muted" style="margin-top:.4em">{d.fullName}</p>
+      </div>
+    </div>
 
     <p class="lead" style="margin-top:1.2rem">
       Driving for{' '}
@@ -167,6 +173,8 @@ const seasonPoints = years[0]?.points ?? null;
 </Base>
 
 <style>
+  .titling { display: flex; align-items: center; gap: clamp(14px, 2vw, 22px); margin-top: .3em; }
+  .titling .headline { margin: 0; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
   .stats.tight { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); padding-block: 0; }
   .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }

@@ -1,0 +1,48 @@
+---
+/**
+ * A driver's face, squared on the face itself.
+ *
+ * Two sets exist and which one to ask for is a weight decision, not a taste
+ * one: `small` is 64px and is for anywhere showing the grid, where twenty-two
+ * portraits at full size would cost 173 KB against a 26 KB page. The full set
+ * is 160px and is for a driver's own page, which shows one. See
+ * pipeline/marks.py.
+ *
+ * The source cutouts carry no background, so neither do these — a driver sits
+ * on the page rather than in a box. A ring is drawn instead, in the team's
+ * colour where one is given, so the shape reads as deliberate at small sizes.
+ *
+ * Only drivers on the current grid have a portrait published. One drove this
+ * season and was replaced; his page carries his name and no face, which is the
+ * honest result rather than a silhouette standing in for him.
+ */
+import { hasFace } from '@lib/data';
+import { u } from '@lib/url';
+
+interface Props {
+  id: string; name?: string; size?: number; small?: boolean;
+  colour?: string | null; class?: string;
+}
+const { id, name = '', size = 28, small = true, colour = null, class: cls = '' } = Astro.props;
+---
+{hasFace(id) && (
+  <img
+    class:list={['face', cls]}
+    src={u(`/heads/${small ? 'sm/' : ''}${id}.webp`)}
+    alt={name}
+    width={size}
+    height={size}
+    style={`width:${size}px;height:${size}px${colour ? `;--ring:${colour}` : ''}`}
+    loading="lazy"
+    decoding="async"
+  />
+)}
+
+<style>
+  .face {
+    display: block; flex: none; border-radius: 50%;
+    object-fit: cover; object-position: center top;
+    background: var(--ks-paper-raised);
+    box-shadow: inset 0 0 0 1px var(--ks-rule), 0 0 0 1.5px var(--ring, transparent);
+  }
+</style>

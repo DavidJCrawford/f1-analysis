@@ -120,6 +120,12 @@ export const driverById = (id: string) => drivers().find((d) => d.id === id) ?? 
 export const constructorDrivers = (id: string) =>
   drivers().filter((d) => d.constructorId === id);
 
+/** Whether a driver has a published portrait. Only the current grid does; a
+ *  driver who raced and was replaced has none. See pipeline/marks.py. */
+export const hasFace = (id: string): boolean =>
+  (faces ??= new Set(loadMaybe<string[]>('heads.json') ?? [])).has(id);
+let faces: Set<string> | null = null;
+
 /** A constructor's mark as [width, height], or null where there is none —
  *  only the current grid is published. See pipeline/marks.py. */
 export const markShape = (id: string): [number, number] | null =>

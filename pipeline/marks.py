@@ -1,4 +1,4 @@
-"""The constructors' marks, and the championship's own.
+"""The constructors' marks, the championship's own, and the drivers' faces.
 
 None of the data sources publish these. F1DB ships circuit diagrams and no team
 imagery; OpenF1 gives a team colour and nothing else. So unlike the sibling NFL
@@ -32,6 +32,18 @@ All of these are trademarks — of the constructors, and of Formula One Licensin
 BV. No licence covers them and none is claimed. They are reproduced to say which
 team is which, and whose sport this is about, on a site that states on its face
 that it is unofficial and unaffiliated. See /credits/.
+
+**The drivers' headshots** come from the same library, which publishes a
+full-length cutout of each driver rather than a portrait. A face-aware crop turns
+one into the other, and the library will do that on request too: `c_thumb,g_face`
+finds the face and squares the frame on it. The cutouts carry no background, so
+neither do the headshots — a driver sits on the page rather than in a box.
+
+These are photographs of people. They are not ours, they are not covered by any
+licence on this site, and a likeness is a separate thing again from a trademark.
+Only drivers on the current grid have one published: Yuki Tsunoda drove this
+season and was replaced, and no 2026 portrait of him exists to fetch, so his page
+carries his name and no face. That is the honest result and not a gap to fill.
 
 Pillow is needed only to trim the wordmark, which is why this is a one-off step
 rather than part of `make data` — the rest of the pipeline stays dependency-free.
@@ -121,6 +133,93 @@ def teams() -> int:
     return got
 
 
+# Two sets, because the weight decides it. A driver's own page shows one face
+# and can afford 160px; the index shows twenty-two, and at 160 that is 173 KB of
+# portrait against a 26 KB page. At 64 — twice the size it is drawn — the whole
+# grid costs less than a fifth of that. The sibling NFL project reached the same
+# split from the same arithmetic.
+HEAD_SIZES = (("", 160), ("sm", 64))
+HEADS = ROOT / "site" / "public" / "heads"
+
+
+def headshots() -> int:
+    """A face per driver, cropped from the full-length cutout by the library.
+
+    The slug a driver is filed under is read off Formula 1's own drivers page
+    rather than derived: it is the first three letters of the forename and three
+    of the surname, which would have produced `kimant01` for Kimi Antonelli when
+    the library files him under the name on his licence, `andant01`.
+    """
+    import csv
+    import json
+    import re
+    import unicodedata
+
+    page = CACHE / "drivers.html"
+    if not page.exists():
+        print("  no drivers page cached — run: make marks after fetching it")
+        return 0
+    html = page.read_text(errors="ignore").replace("\\u002F", "/")
+    pairs = sorted(set(re.findall(r"common/f1/2026/([a-z0-9]+)/([a-z]{6}\d{2})/", html)))
+    if not pairs:
+        print("  no driver slugs on the page")
+        return 0
+
+    drivers = json.loads((ROOT / "site" / "data" / "drivers.json").read_text())
+    season = json.loads((ROOT / "site" / "data" / "seasons" / "2026.json").read_text())
+    raced = {}
+    for rows in season["results"].values():
+        for r in rows:
+            raced.setdefault(r["driverId"], r["constructorId"])
+    byid = {d["id"]: d for d in drivers}
+    slug_team = {v: k for k, v in TEAMS.items()}
+
+    def surname(name: str) -> str:
+        parts = [p for p in name.split() if p.lower().rstrip(".") not in
+                 ("jr", "sr", "ii", "iii", "iv")]
+        flat = "".join(c for c in unicodedata.normalize("NFD", parts[-1])
+                       if unicodedata.category(c) != "Mn")
+        return flat.lower()[:3]
+
+    HEADS.mkdir(parents=True, exist_ok=True)
+    have, got, missing = [], 0, []
+    for did, cid in sorted(raced.items()):
+        d = byid.get(did)
+        if not d:
+            continue
+        hit = [(t, s) for t, s in pairs
+               if slug_team.get(t) == cid and s[3:6] == surname(d["name"])]
+        if len(hit) != 1:
+            missing.append(d["name"])
+            continue
+        team, slug = hit[0]
+        ok = True
+        for sub, px in HEAD_SIZES:
+            folder = HEADS / sub if sub else HEADS
+            folder.mkdir(parents=True, exist_ok=True)
+            dest = folder / f"{did}.webp"
+            if dest.exists() and dest.stat().st_size:
+                continue
+            try:
+                dest.write_bytes(fetch(
+                    f"{F1_MEDIA_BASE}/c_thumb,g_face,w_{px},h_{px}/q_auto/"
+                    f"{F1_MEDIA_PATH}/{team}/{slug}/2026{team}{slug}front.webp"))
+                got += 1
+            except Exception as e:
+                print(f"  {did}: {e}")
+                ok = False
+                break
+        if ok:
+            have.append(did)
+    (ROOT / "site" / "data" / "heads.json").write_text(
+        json.dumps(sorted(have), indent=1) + "\n")
+    total = sum(p.stat().st_size for p in HEADS.rglob("*.webp"))
+    print(f"  {len(have)} headshots ({got} new), {total / 1024:.0f} KB in all")
+    if missing:
+        print(f"  no portrait published for: {', '.join(missing)}")
+    return len(have)
+
+
 def wordmark() -> int:
     """The F1 wordmark, trimmed to its ink and set on the site's own ground.
 
@@ -158,6 +257,7 @@ def main() -> int:
     print("marks")
     n = teams()
     wordmark()
+    headshots()
     return 0 if n else 1
 
 

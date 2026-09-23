@@ -472,6 +472,26 @@ Two things that had to be measured rather than assumed:
   mark carries 22 pixels of ink inside that. So marks are drawn at about the
   height of the text beside them and none is asked to be a picture.
 
+**The drivers' portraits** come from the same library, which publishes a
+full-length cutout rather than a headshot; a face-aware crop turns one into the
+other, and the library does that on request too. They carry no background, so a
+driver sits on the page rather than in a box, inside a ring of the team's colour.
+
+Which slug a driver is filed under is read off Formula 1's own drivers page
+rather than derived. The rule looks like three letters of the forename and three
+of the surname, which would have produced `kimant01` for Kimi Antonelli where the
+library files him under the name on his licence, `andant01`.
+
+Two sets again, and for the same reason the NFL project split its crests: a
+driver's own page shows one face and can afford 160px, while the index shows
+twenty-two and at that size would carry **173 KB of portrait against a 26 KB
+page**. At 64px — twice the size it is drawn — the whole grid costs 34 KB.
+
+**Twenty-two of the twenty-three drivers who have raced have one.** Yuki Tsunoda
+drove this season and was replaced, so no 2026 portrait of him is published; his
+page carries his name and no face. A silhouette standing in for him would be a
+worse answer than the gap.
+
 Only the monochrome treatment for paper is shipped. The one for a dark ground is
 published alongside and was not taken: the replay's instrument panel is the only
 dark surface here, and it already tells cars apart by the team's own colour, so a

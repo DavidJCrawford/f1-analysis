@@ -1,7 +1,8 @@
 ---
 import Base from '@layouts/Base.astro';
-import { drivers, seasons, teamColour } from '@lib/data';
+import { drivers, seasons, teamColour, numberShape } from '@lib/data';
 import DriverFace from '@components/DriverFace.astro';
+import DriverNumber from '@components/DriverNumber.astro';
 import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts } from '@lib/format';
@@ -30,7 +31,11 @@ const list = drivers();
             const colour = teamColour(d.constructorId);
             return (
               <tr>
-                <td class="n">{d.number ?? '—'}</td>
+                <td class="n no">
+                  {numberShape(d.id)
+                    ? <DriverNumber id={d.id} height={17} />
+                    : (d.number ?? '—')}
+                </td>
                 <td>
                   <a class="who" href={u(`/drivers/${d.id}/`)}>
                     <DriverFace id={d.id} size={28} colour={colour} />{d.name}
@@ -56,6 +61,7 @@ const list = drivers();
 </Base>
 
 <style>
+  .no :global(img) { margin-left: auto; }
   .who { display: inline-flex; align-items: center; gap: .65em; }
   .team { display: inline-flex; align-items: center; gap: .5em; }
   .team .chip {

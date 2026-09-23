@@ -1,0 +1,47 @@
+---
+/**
+ * A driver's racing number, drawn the way they draw it.
+ *
+ * These stand in for helmets, which Formula 1 publishes nowhere — not on a
+ * driver's page, not on the drivers index, not on a team's page. A number is
+ * the nearest published thing that belongs to the driver rather than the team.
+ *
+ * Sized by height, like the constructors' marks and for the same reason: they
+ * are trimmed to their ink, so a 4 is narrow where a 44 is wide, and a fixed
+ * square would draw one of them tiny. See pipeline/marks.py.
+ *
+ * Only drivers on the current grid have one. The plain numeral is always there
+ * in the markup beside it, so a driver without a published number still reads.
+ */
+import { numberShape } from '@lib/data';
+import { u } from '@lib/url';
+
+interface Props { id: string; height?: number; class?: string; }
+const { id, height = 22, class: cls = '' } = Astro.props;
+const shape = numberShape(id);
+const width = shape ? Math.round((shape[0] / shape[1]) * height) : 0;
+---
+{shape && (
+  <img
+    class:list={['racing-number', cls]}
+    src={u(`/numbers/${id}.webp`)}
+    alt=""
+    width={width}
+    height={height}
+    style={`height:${height}px`}
+    loading="lazy"
+    decoding="async"
+  />
+)}
+
+<style>
+  /* Published white, for a dark ground. This is a light page, so it is inverted
+     to ink rather than fetched twice — the source is a flat silhouette, so the
+     filter is exact and not an approximation. */
+  .racing-number {
+    display: block; width: auto; max-width: 4em;
+    object-fit: contain; object-position: left center; flex: none;
+    filter: invert(1);
+    opacity: .82;
+  }
+</style>

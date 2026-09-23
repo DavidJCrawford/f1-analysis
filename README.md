@@ -69,7 +69,7 @@ else gathered, and each source is named with what it actually supplies.
 | [MultiViewer](https://multiviewer.app) | no terms published | Circuit geometry, official corner positions, finish lines |
 | [TUMFTM](https://github.com/TUMFTM/racetrack-database) | LGPL-3.0 over ODbL | Centrelines where the feed has none. OpenStreetMap-derived |
 | [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT | Outlines where neither covers — and this README's banner |
-| Formula 1 media library · ESPN | **trademarks, no licence** | The constructors' marks, the championship's wordmark, the drivers' portraits |
+| Formula 1 media library · ESPN | **trademarks, no licence** | The constructors' marks, the championship's wordmark, the drivers' portraits and racing numbers |
 
 The marks are trademarks of the constructors and of Formula One Licensing BV, and
 the portraits are photographs of people — a different thing again. No licence

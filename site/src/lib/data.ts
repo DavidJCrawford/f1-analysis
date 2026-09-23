@@ -120,6 +120,13 @@ export const driverById = (id: string) => drivers().find((d) => d.id === id) ?? 
 export const constructorDrivers = (id: string) =>
   drivers().filter((d) => d.constructorId === id);
 
+/** A driver's racing number graphic as [width, height], or null where there is
+ *  none. Standing in for a helmet, which is published nowhere — see
+ *  pipeline/marks.py. */
+export const numberShape = (id: string): [number, number] | null =>
+  ((numbers ??= loadMaybe<Record<string, [number, number]>>('numbers.json') ?? {}))[id] ?? null;
+let numbers: Record<string, [number, number]> | null = null;
+
 /** Whether a driver has a published portrait. Only the current grid does; a
  *  driver who raced and was replaced has none. See pipeline/marks.py. */
 export const hasFace = (id: string): boolean =>

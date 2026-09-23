@@ -1,4 +1,4 @@
-"""The constructors' marks, the championship's own, and the drivers' faces.
+"""The constructors' marks, the championship's own, and the drivers' faces and numbers.
 
 None of the data sources publish these. F1DB ships circuit diagrams and no team
 imagery; OpenF1 gives a team colour and nothing else. So unlike the sibling NFL
@@ -44,6 +44,14 @@ licence on this site, and a likeness is a separate thing again from a trademark.
 Only drivers on the current grid have one published: Yuki Tsunoda drove this
 season and was replaced, and no 2026 portrait of him exists to fetch, so his page
 carries his name and no face. That is the honest result and not a gap to fill.
+
+**The drivers' numbers** are each driver's racing number drawn in their own
+styling, which the library publishes beside the portrait. They stand in for the
+helmets, which do not exist to fetch: Formula 1 publishes no helmet imagery at
+all — not on a driver's page, not on the drivers index, not on a team's page —
+and the only sources are a commercial infographics agency and press photography,
+neither of which this site is in a position to take from. A number is the nearest
+published thing that belongs to the driver rather than the team.
 
 Pillow is needed only to trim the wordmark, which is why this is a one-off step
 rather than part of `make data` — the rest of the pipeline stays dependency-free.
@@ -140,30 +148,28 @@ def teams() -> int:
 # split from the same arithmetic.
 HEAD_SIZES = (("", 160), ("sm", 64))
 HEADS = ROOT / "site" / "public" / "heads"
+NUMS = ROOT / "site" / "public" / "numbers"
 
 
-def headshots() -> int:
-    """A face per driver, cropped from the full-length cutout by the library.
+def driver_slugs() -> dict[str, tuple[str, str]]:
+    """Our driver id -> the (team, driver) slugs the library files them under.
 
-    The slug a driver is filed under is read off Formula 1's own drivers page
-    rather than derived: it is the first three letters of the forename and three
-    of the surname, which would have produced `kimant01` for Kimi Antonelli when
-    the library files him under the name on his licence, `andant01`.
+    Read off Formula 1's own drivers page rather than derived. The rule looks
+    like three letters of the forename and three of the surname, which would
+    have produced `kimant01` for Kimi Antonelli when the library files him under
+    the name on his licence, `andant01`; and the last word of "Carlos Sainz Jr."
+    is not his surname.
     """
-    import csv
     import json
     import re
     import unicodedata
 
     page = CACHE / "drivers.html"
     if not page.exists():
-        print("  no drivers page cached — run: make marks after fetching it")
-        return 0
+        print("  no drivers page cached")
+        return {}
     html = page.read_text(errors="ignore").replace("\\u002F", "/")
     pairs = sorted(set(re.findall(r"common/f1/2026/([a-z0-9]+)/([a-z]{6}\d{2})/", html)))
-    if not pairs:
-        print("  no driver slugs on the page")
-        return 0
 
     drivers = json.loads((ROOT / "site" / "data" / "drivers.json").read_text())
     season = json.loads((ROOT / "site" / "data" / "seasons" / "2026.json").read_text())
@@ -181,18 +187,63 @@ def headshots() -> int:
                        if unicodedata.category(c) != "Mn")
         return flat.lower()[:3]
 
-    HEADS.mkdir(parents=True, exist_ok=True)
-    have, got, missing = [], 0, []
+    out, missing = {}, []
     for did, cid in sorted(raced.items()):
         d = byid.get(did)
         if not d:
             continue
         hit = [(t, s) for t, s in pairs
                if slug_team.get(t) == cid and s[3:6] == surname(d["name"])]
-        if len(hit) != 1:
+        if len(hit) == 1:
+            out[did] = hit[0]
+        else:
             missing.append(d["name"])
-            continue
-        team, slug = hit[0]
+    if missing:
+        print(f"  not on the current grid, so nothing published: {', '.join(missing)}")
+    return out
+
+
+def numbers() -> int:
+    """Each driver's racing number, in their own styling. Standing in for the
+    helmets, which Formula 1 does not publish anywhere — see the note above."""
+    import json
+
+    NUMS.mkdir(parents=True, exist_ok=True)
+    have, got = [], 0
+    for did, (team, slug) in driver_slugs().items():
+        dest = NUMS / f"{did}.webp"
+        if not (dest.exists() and dest.stat().st_size):
+            try:
+                dest.write_bytes(fetch(
+                    f"{F1_MEDIA_BASE}/e_trim/c_fit,h_96/q_auto/{F1_MEDIA_PATH}/{team}/{slug}"
+                    f"/2026{team}{slug}numberwhite.webp"))
+                got += 1
+            except Exception as e:
+                print(f"  {did}: {e}")
+                continue
+        have.append(did)
+    shapes = {}
+    for did in have:
+        try:
+            from PIL import Image
+            with Image.open(NUMS / f"{did}.webp") as im:
+                shapes[did] = list(im.size)
+        except Exception:
+            shapes[did] = [96, 96]
+    (ROOT / "site" / "data" / "numbers.json").write_text(
+        json.dumps(shapes, indent=1, sort_keys=True) + "\n")
+    total = sum(p.stat().st_size for p in NUMS.glob("*.webp"))
+    print(f"  {len(have)} racing numbers ({got} new), {total / 1024:.0f} KB in all")
+    return len(have)
+
+
+def headshots() -> int:
+    """A face per driver, cropped from the full-length cutout by the library."""
+    import json
+
+    HEADS.mkdir(parents=True, exist_ok=True)
+    have, got = [], 0
+    for did, (team, slug) in driver_slugs().items():
         ok = True
         for sub, px in HEAD_SIZES:
             folder = HEADS / sub if sub else HEADS
@@ -215,8 +266,6 @@ def headshots() -> int:
         json.dumps(sorted(have), indent=1) + "\n")
     total = sum(p.stat().st_size for p in HEADS.rglob("*.webp"))
     print(f"  {len(have)} headshots ({got} new), {total / 1024:.0f} KB in all")
-    if missing:
-        print(f"  no portrait published for: {', '.join(missing)}")
     return len(have)
 
 
@@ -258,6 +307,7 @@ def main() -> int:
     n = teams()
     wordmark()
     headshots()
+    numbers()
     return 0 if n else 1
 
 

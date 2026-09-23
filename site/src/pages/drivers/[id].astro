@@ -6,6 +6,7 @@ import {
   drivers, driverById, driverSeasons, driverResults, teamColour, circuit,
 } from '@lib/data';
 import DriverFace from '@components/DriverFace.astro';
+import DriverNumber from '@components/DriverNumber.astro';
 import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts, shortDate, longDate } from '@lib/format';
@@ -48,6 +49,7 @@ const seasonPoints = years[0]?.points ?? null;
         <h1 class="headline">{d.name}</h1>
         <p class="lead muted" style="margin-top:.4em">{d.fullName}</p>
       </div>
+      <DriverNumber id={d.id} height={54} class="racing-no" />
     </div>
 
     <p class="lead" style="margin-top:1.2rem">
@@ -174,6 +176,8 @@ const seasonPoints = years[0]?.points ?? null;
 
 <style>
   .titling { display: flex; align-items: center; gap: clamp(14px, 2vw, 22px); margin-top: .3em; }
+  /* Pushed to the far edge: it is the driver's own mark, not part of the name. */
+  .titling :global(.racing-no) { margin-left: auto; }
   .titling .headline { margin: 0; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
   .stats.tight { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); padding-block: 0; }

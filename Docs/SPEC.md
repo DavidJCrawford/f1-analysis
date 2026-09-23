@@ -492,6 +492,21 @@ drove this season and was replaced, so no 2026 portrait of him is published; his
 page carries his name and no face. A silhouette standing in for him would be a
 worse answer than the gap.
 
+**The drivers' racing numbers** are each driver's own, drawn in their styling and
+published beside the portrait. They are here in place of **helmets, which could
+not be done at all**: Formula 1 publishes no helmet imagery in the library the
+marks and portraits come from, and the word does not appear once on a driver's
+page, the drivers index or a team's page. What exists elsewhere is a commercial
+infographics agency's artwork or press photography, and taking from either is a
+different act from reproducing an official mark to identify a team. Recorded so
+the question is not re-opened without the finding.
+
+Numbers are sized by height like the marks, and for the same reason — trimmed to
+their ink, a 4 is narrow where a 44 is wide. They are published white for a dark
+ground and inverted in CSS rather than fetched twice; the source is a flat
+silhouette, so the inversion is exact rather than an approximation. 22 of them,
+10 KB. A driver without one keeps the plain numeral that was always there.
+
 Only the monochrome treatment for paper is shipped. The one for a dark ground is
 published alongside and was not taken: the replay's instrument panel is the only
 dark surface here, and it already tells cars apart by the team's own colour, so a

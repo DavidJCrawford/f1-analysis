@@ -5,6 +5,7 @@ import Stat from '@components/Stat.astro';
 import {
   drivers, driverById, driverSeasons, driverResults, teamColour, circuit,
 } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts, shortDate, longDate } from '@lib/format';
 
@@ -46,7 +47,7 @@ const seasonPoints = years[0]?.points ?? null;
     <p class="lead" style="margin-top:1.2rem">
       Driving for{' '}
       <a href={u(`/teams/${d.constructorId}/`)} class="team" style={colour ? `--team: ${colour}` : undefined}>
-        <span class="chip" aria-hidden="true"></span>{d.constructor}
+        <TeamMark id={d.constructorId} height={19} /><span class="chip" aria-hidden="true"></span>{d.constructor}
       </a>.
     </p>
 
@@ -175,7 +176,7 @@ const seasonPoints = years[0]?.points ?? null;
   /* The team's own colour, as a mark beside its name rather than behind it. */
   .team { display: inline-flex; align-items: baseline; gap: .5em; }
   .team .chip {
-    width: .62em; height: .62em; border-radius: 50%;
+    width: 3px; height: 1.15em; border-radius: 1px;
     background: var(--team, var(--ks-text-mute-deep));
     align-self: center;
   }

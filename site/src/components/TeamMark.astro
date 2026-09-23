@@ -1,0 +1,48 @@
+---
+/**
+ * A constructor's mark, set to a height.
+ *
+ * Height, not size: the marks are trimmed to their ink and normalised to a
+ * common height, so width is whatever each one's proportions make it — Ferrari's
+ * shield is nearly square, Aston Martin's wings are four times wider than they
+ * are tall. That is how a mark sits beside a word in print, and a fixed square
+ * box would draw the flat ones as slivers. See pipeline/marks.py.
+ *
+ * Monochrome, on paper. The marks in team colours were published and not taken:
+ * colour on this site already means something, being the team's own read off the
+ * timing feed, and a second colour system competing with it reads as decoration.
+ *
+ * Only the current grid has a mark. Asking rather than assuming means widening
+ * the scope leaves an older constructor with its name and no broken image.
+ */
+import { markShape } from '@lib/data';
+import { u } from '@lib/url';
+
+interface Props {
+  id: string; name?: string; height?: number; class?: string;
+}
+const { id, name = '', height = 18, class: cls = '' } = Astro.props;
+const shape = markShape(id);
+const width = shape ? Math.round((shape[0] / shape[1]) * height) : 0;
+---
+{shape && (
+  <img
+    class:list={['team-mark', cls]}
+    src={u(`/marks/${id}.webp`)}
+    alt={name}
+    width={width}
+    height={height}
+    style={`height:${height}px`}
+    loading="lazy"
+    decoding="async"
+  />
+)}
+
+<style>
+  /* Capped so the widest mark cannot run away with a table cell; the cap bites
+     on Aston Martin alone, which is four and a half times wider than tall. */
+  .team-mark {
+    display: block; width: auto; max-width: 3.4em;
+    object-fit: contain; object-position: left center; flex: none;
+  }
+</style>

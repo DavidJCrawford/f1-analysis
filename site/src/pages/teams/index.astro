@@ -1,6 +1,7 @@
 ---
 import Base from '@layouts/Base.astro';
 import { constructors, seasons } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int } from '@lib/format';
 
@@ -29,7 +30,11 @@ const year = seasons()[0]!.year;
         <tbody>
           {active.map((c) => (
             <tr>
-              <td><a href={u(`/teams/${c.id}/`)}>{c.name}</a></td>
+              <td>
+                <a class="named" href={u(`/teams/${c.id}/`)}>
+                  <TeamMark id={c.id} height={18} />{c.name}
+                </a>
+              </td>
               <td class="muted ui">{c.country}</td>
               <td class="n">{int(c.entries)}</td>
               <td class="n">{int(c.wins)}</td>
@@ -45,5 +50,9 @@ const year = seasons()[0]!.year;
 </Base>
 
 <style>
+  /* The mark sits with the name, not instead of it. A reader scanning a column
+     of eleven finds the shape first and reads the word to confirm it. */
+  .named { display: inline-flex; align-items: center; gap: .6em; }
+
   .gold { color: var(--ks-kinpaku-deep); font-weight: 600; }
 </style>

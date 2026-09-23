@@ -120,6 +120,12 @@ export const driverById = (id: string) => drivers().find((d) => d.id === id) ?? 
 export const constructorDrivers = (id: string) =>
   drivers().filter((d) => d.constructorId === id);
 
+/** A constructor's mark as [width, height], or null where there is none —
+ *  only the current grid is published. See pipeline/marks.py. */
+export const markShape = (id: string): [number, number] | null =>
+  ((marks ??= loadMaybe<Record<string, [number, number]>>('marks.json') ?? {}))[id] ?? null;
+let marks: Record<string, [number, number]> | null = null;
+
 /** Where the grid lines up, as a fraction of the lap from the finish line.
  *  Measured from a race's own grid, so only circuits that have held one this
  *  season have it — see pipeline/replay.py. */

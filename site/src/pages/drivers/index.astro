@@ -1,6 +1,7 @@
 ---
 import Base from '@layouts/Base.astro';
 import { drivers, seasons, teamColour } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts } from '@lib/format';
 
@@ -33,7 +34,7 @@ const list = drivers();
                 <td class="muted">
                   <a class="team" href={u(`/teams/${d.constructorId}/`)}
                      style={colour ? `--team: ${colour}` : undefined}>
-                    <span class="chip" aria-hidden="true"></span>{d.constructor}
+                    <TeamMark id={d.constructorId} height={17} /><span class="chip" aria-hidden="true"></span>{d.constructor}
                   </a>
                 </td>
                 <td class="muted">{d.nationality}</td>
@@ -52,7 +53,7 @@ const list = drivers();
 <style>
   .team { display: inline-flex; align-items: center; gap: .5em; }
   .team .chip {
-    width: .58em; height: .58em; border-radius: 50%;
+    width: 3px; height: 1.05em; border-radius: 1px;
     background: var(--team, var(--ks-text-mute-deep));
   }
 </style>

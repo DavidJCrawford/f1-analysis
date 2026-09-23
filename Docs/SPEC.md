@@ -444,6 +444,39 @@ and the lap count — and is the reason several of the above were found at all.
 Current: 8 of 14 grids exact, 6 of 14 closing orders exact, 0 cars out of place
 against the start line, 0 lap-counting problems.
 
+### 6.6.1 The marks — BUILT
+
+The championship's wordmark sits in the masthead; each constructor's mark sits
+beside its name wherever one is named. Neither is in any data source: F1DB ships
+circuit diagrams and no team imagery, OpenF1 gives a colour and nothing else.
+The constructors' come from Formula 1's own media library, the wordmark from the
+same ESPN CDN the sibling NFL project takes its league mark from, and
+`pipeline/marks.py` writes down which is which.
+
+**They are trademarks and no licence covers them.** None is claimed. They are
+reproduced to say which team is which and which sport this is about, on a site
+that states on its face that it is unofficial — the same position the sibling
+project took, and `/credits/` says so in as many words. A page loads only the
+marks of the teams it names: eleven files, twelve kilobytes in all.
+
+Two things that had to be measured rather than assumed:
+
+- **The marks are normalised for width and not for height.** Ink fills the full
+  width of every one, but its height runs from 0.23 to 0.83 of the canvas — a
+  3.6x spread, the same fault the NFL project found in its club marks. Drawn
+  into a fixed square, Aston Martin's wings read as a sliver beside Ferrari's
+  shield. Each is therefore fetched trimmed to its ink and scaled to a common
+  height, which the media library does on request; width follows the mark's own
+  proportions, as a mark sits beside a word in print.
+- **96px is the ceiling.** The library stores nothing larger, and the flattest
+  mark carries 22 pixels of ink inside that. So marks are drawn at about the
+  height of the text beside them and none is asked to be a picture.
+
+Only the monochrome treatment for paper is shipped. The one for a dark ground is
+published alongside and was not taken: the replay's instrument panel is the only
+dark surface here, and it already tells cars apart by the team's own colour, so a
+mark there would crowd a chip to repeat what it says.
+
 ### 6.7 Circuit geometry — BUILT
 
 Outlines come from the best source that covers a track: 21 of this season's 23

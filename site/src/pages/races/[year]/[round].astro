@@ -5,6 +5,7 @@ import Stat from '@components/Stat.astro';
 import CircuitOutline from '@components/CircuitOutline.astro';
 import RaceReplay from '@components/RaceReplay.astro';
 import { races, season, circuit, outline, replay, hasDriverPage, TIER_LABEL } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { longDate, km, pts } from '@lib/format';
 
@@ -78,7 +79,11 @@ const finished = results.filter((r) => r.posNum != null).length;
                         ? <a class="plain" href={u(`/drivers/${p.driverId}/`)}>{p.driver}</a>
                         : p.driver}
                     </span>
-                    <span class="ui muted"><a href={u(`/teams/${p.constructorId}/`)}>{p.constructor}</a></span>
+                    <span class="ui muted">
+                      <a class="named" href={u(`/teams/${p.constructorId}/`)}>
+                        <TeamMark id={p.constructorId} height={16} />{p.constructor}
+                      </a>
+                    </span>
                   </span>
                 </li>
               ))}
@@ -107,7 +112,11 @@ const finished = results.filter((r) => r.posNum != null).length;
                         : r.driver}
                       {r.sharedCar && <span class="ui muted" title="Shared drive"> ◊</span>}
                     </td>
-                    <td class="muted"><a href={u(`/teams/${r.constructorId}/`)}>{r.constructor}</a></td>
+                    <td class="muted">
+                      <a class="named" href={u(`/teams/${r.constructorId}/`)}>
+                        <TeamMark id={r.constructorId} height={15} />{r.constructor}
+                      </a>
+                    </td>
                     <td class="n">{r.laps ?? '—'}</td>
                     <td class="num">{r.time ?? r.gap ?? r.reasonRetired ?? '—'}</td>
                     <td class="n muted">{r.grid ?? '—'}</td>
@@ -126,6 +135,7 @@ const finished = results.filter((r) => r.posNum != null).length;
 </Base>
 
 <style>
+  .named { display: inline-flex; align-items: center; gap: .5em; }
   .head { display: flex; gap: clamp(24px, 4vw, 56px); align-items: center; justify-content: space-between; flex-wrap: wrap; padding-block: 26px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); flex: 1 1 420px; }
   .outline-link { color: var(--ks-ink); transition: transform var(--ks-quick) var(--ks-ease); }

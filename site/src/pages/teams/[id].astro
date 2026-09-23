@@ -6,6 +6,7 @@ import {
   constructors, constructorById, constructorSeasons, constructorDrivers,
   teamColour, driverSeasons,
 } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { int, pts, yearSpan } from '@lib/format';
 
@@ -22,7 +23,10 @@ const lineUp = constructorDrivers(c.id).map((d) => ({ d, season: driverSeasons(d
 <Base title={c.name} description={`${c.fullName} — Formula 1 constructor record.`}>
   <div class="wrap section" data-pagefind-body>
     <p class="eyebrow">Constructor · {c.country}</p>
-    <h1 class="headline" style="margin-top:.3em">{c.name}</h1>
+    <div class="titling">
+      <TeamMark id={c.id} height={34} class="crest" />
+      <h1 class="headline">{c.name}</h1>
+    </div>
     <p class="lead muted" style="margin-top:.7em">{c.fullName}</p>
 
     <hr class={colour ? 'rule accent' : 'rule'} style={`margin-top:2.4rem${colour ? `;--team:${colour}` : ''}`} />
@@ -96,6 +100,10 @@ const lineUp = constructorDrivers(c.id).map((d) => ({ d, season: driverSeasons(d
 </Base>
 
 <style>
+  .titling { display: flex; align-items: center; gap: .7em; margin-top: .3em; }
+  .titling .headline { margin: 0; }
+  .titling :global(.crest) { max-width: 5.5em; }
+
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: clamp(18px,3vw,36px); padding-block: 26px; }
 
   /* The team's colour, once, as a short bar laid on the rule that opens its

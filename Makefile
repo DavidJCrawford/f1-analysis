@@ -6,7 +6,7 @@
 F1DB_DIR ?= .cache/f1db
 SITE     := site
 
-.PHONY: help spine emit geo align outlines profile colours data replays verify build preview check banner clean
+.PHONY: help spine emit geo align outlines profile colours marks data replays verify build preview check banner clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  %-12s %s\n", $$1, $$2}'
@@ -34,6 +34,9 @@ outlines: ## Normalised outlines from the best geometry available (length-valida
 
 colours: ## Each constructor's own colour, joined from the timing feed by car number
 	python3 pipeline/colours.py
+
+marks: ## The constructors' marks and the F1 wordmark (needs Pillow; one-off)
+	python3 pipeline/marks.py
 
 data: spine emit align outlines profile colours ## Full data refresh
 

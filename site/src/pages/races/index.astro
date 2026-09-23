@@ -2,6 +2,7 @@
 import Base from '@layouts/Base.astro';
 import Stat from '@components/Stat.astro';
 import { seasons, season, circuit, meta, counts, hasDriverPage, TIER_LABEL } from '@lib/data';
+import TeamMark from '@components/TeamMark.astro';
 import { u } from '@lib/url';
 import { shortDate, pts } from '@lib/format';
 
@@ -93,7 +94,12 @@ const decided = index.championDriver || index.championConstructor;
                 {s.constructorStandings.slice(0, 12).map((c) => (
                   <tr>
                     <td class="n">{c.pos}</td>
-                    <td><a href={u(`/teams/${c.constructorId}/`)}>{c.constructor}</a>{c.champion && <span class="crown" aria-label="Champion"> ●</span>}</td>
+                    <td>
+                      <a class="named" href={u(`/teams/${c.constructorId}/`)}>
+                        <TeamMark id={c.constructorId} height={18} />{c.constructor}
+                      </a>
+                      {c.champion && <span class="crown" aria-label="Champion"> ●</span>}
+                    </td>
                     <td class="n">{pts(c.points)}</td>
                   </tr>
                 ))}
@@ -111,6 +117,7 @@ const decided = index.championDriver || index.championConstructor;
 </Base>
 
 <style>
+  .named { display: inline-flex; align-items: center; gap: .55em; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: clamp(18px,3vw,40px); padding-block: 26px; }
   .two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); }
   .crown { color: var(--ks-kinpaku); font-size: .7em; vertical-align: middle; }

@@ -50,7 +50,7 @@ speed — accurate to a median 17 m, and the replay says so on screen.
 highlighted along their full length, an unrolled curvature profile of the lap, and
 where the circuit sits against the rest of the calendar for length and turn count.
 A circuit has a start line and a finish line, and both are drawn where they are far
-enough apart to tell apart — 8 of the 13 raced so far, from 101 m at Barcelona to
+enough apart to tell apart — 9 of the 14 raced so far, from 94 m at Baku to
 310 m at Monza. Melbourne, Monaco and Montreal paint one line and use it for both.
 
 86 pages. The architecture still supports the full 1950–2026 archive — 1,172 races,
@@ -124,10 +124,10 @@ and its output is committed as data; see [RUNBOOK.md](Docs/RUNBOOK.md).
 
 **Live**, at [davidjcrawford.github.io/f1-analysis](https://davidjcrawford.github.io/f1-analysis/).
 86 pages build in under a second: the calendar and both championships, 23 circuits,
-11 teams, 23 drivers, and 14 races you can replay.
+11 teams, 23 drivers, and 15 races you can replay.
 
-Every replay is scored before it ships. Currently 8 of 14 reproduce the starting grid
-exactly, 6 of 14 finish in the classified order, and zero have a car out of place
+Every replay is scored before it ships. Currently 9 of 15 reproduce the starting grid
+exactly, 9 of 15 finish in the classified order, and zero have a car out of place
 against the start line or a lap miscounted — the last two being faults rather than
 tolerances.
 

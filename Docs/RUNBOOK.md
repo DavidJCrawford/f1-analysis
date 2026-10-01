@@ -131,12 +131,12 @@ git diff --stat
 **`make verify` is the gate that matters** and is worth reading rather than
 glancing at. It scores every replay against three things it cannot have got
 from the replay: the starting grid, the classified result, and the lap count.
-Numbers that should hold, as of 2026-09-16:
+Numbers that should hold, as of 2026-10-02:
 
 | Check | Expected |
 | --- | --- |
-| Grids reproduced exactly | 8 of 14, 26 cars out of place in all |
-| Closing orders exact | 6 of 14, 17 cars out of place in all |
+| Grids reproduced exactly | 9 of 15, 26 cars out of place in all |
+| Closing orders exact | 9 of 15, 11 cars out of place in all |
 | Cars not lined up behind the start line | **0** |
 | Lap-counting problems | **0** |
 

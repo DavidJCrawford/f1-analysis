@@ -389,7 +389,7 @@ below. A standing start, pit stops, retirements, the chequer.
 ordered cars by lap number plus the fraction of the lap time elapsed, which
 puts a car on a quicker lap ahead of one physically in front of it. Order is
 now taken from arc distance along the centreline. The test is the starting
-grid, which is known independently: 8 of 14 rounds reproduce it exactly and 26
+grid, which is known independently: 9 of 15 rounds reproduce it exactly and 26
 cars across the season are out of place, against an ordering that was
 essentially random before.
 
@@ -433,6 +433,40 @@ than drawn:
   across the track, so every car runs down the centreline — it shows a race,
   not a duel, and the replay says so on screen.
 
+**Two things Baku found, both of which had been wrong all along.** The round
+opened with the race winner shown fifteenth at the flag, and neither fault was
+new — Baku was just the first circuit to trip both at once.
+
+- *The lap count was anchored only after a visible break in the feed.* Russell
+  crossed the line on the one frame his position jumped, so the wrap rule, which
+  needs continuity, and the anchor, which deliberately keeps away from the line,
+  both passed it over. Seven frames later a projection 34 m off the centreline —
+  he was in the pit lane — fired a backwards wrap that a forwards one then half
+  undid, and he finished a lap short of himself. **A lap short is 0.97 of a lap
+  of progress: not enough to report a car lapped, and enough to sink it to the
+  back of the order.** The anchor now runs every frame in the safe band, so an
+  error of this kind heals within seconds whatever caused it — but only while
+  the feed is still issuing laps for that car, because a car that takes the
+  chequered flag is issued no row for the slow-down lap, and anchoring past that
+  pulls a winner back a lap at the moment it crosses. It did, and cost a round
+  its lap count before the second half of the rule was added.
+- *Direction tells carriageways apart where distance cannot.* **Baku runs back
+  alongside itself for a quarter of the lap with under ten metres between the
+  two sides of the road** — closer than a racing line's own wander. The nearest
+  point on the centreline will hop a car across the barrier for being half a
+  metre nearer, and the hint that normally prevents this then holds it there.
+  That put the third, fourth and fifth finishers at the back. The unrestricted
+  search is now given the car's heading and will not return a stretch running
+  against it, and it must also find the hinted answer implausible in absolute
+  terms — 25 m, well clear of a racing line, a pit lane and the gap between
+  those carriageways alike — before it overrides the hint at all.
+
+Season-wide the two together took closing orders from 6 of 14 rounds exact to
+9 of 15, and cars out of place from 17 to 11, with both absolutes still zero.
+Baku's own last two errors are a pair classified **30 milliseconds apart**, which
+a half-second frame cannot resolve, and a shuffle among cars still eight seconds
+from the flag when the leader took it.
+
 **Stoppages are kept but stepped over.** Monaco was red-flagged for 33 minutes.
 The frames are the race and stay, but playback passes over them and says how
 long it was; scrubbing in is left alone, because that is someone looking for
@@ -441,7 +475,7 @@ it.
 **Verification.** `pipeline/verify_replay.py` scores every replay against
 things known independently of it — the starting grid, the classified result,
 and the lap count — and is the reason several of the above were found at all.
-Current: 8 of 14 grids exact, 6 of 14 closing orders exact, 0 cars out of place
+Current: 9 of 15 grids exact, 9 of 15 closing orders exact, 0 cars out of place
 against the start line, 0 lap-counting problems.
 
 ### 6.6.1 The marks — BUILT

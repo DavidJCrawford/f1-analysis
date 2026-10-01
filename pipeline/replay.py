@@ -361,6 +361,9 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         # alongside itself — Monaco above all — the nearest point flips to the
         # neighbouring stretch of track and the lap count falls apart.
         REACH = 0.5 * 120.0 * scale     # a frame at 430 km/h, with room to spare
+        # How far off the centreline a car has to be before the hint is treated
+        # as lost rather than merely imprecise. See the note in arc_of.
+        STRAY_M = 25.0
 
         def _leg(j, x, y):
             ax, ay = order_track[j]
@@ -371,37 +374,78 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
             qx, qy = ax + vx * u, ay + vy * u
             return (x - qx) ** 2 + (y - qy) ** 2, (tcum[j] + tseg[j] * u) / TLAP
 
-        def _sweep(x, y, lo, hi):
+        def _with(j, mv):
+            """Whether leg j runs the way the car is going.
+
+            Two carriageways of the same road are metres apart and face opposite
+            ways, so direction tells them apart where distance cannot. Legs are
+            short, so the test is the sign of the dot product and nothing finer.
+            """
+            if mv is None:
+                return True
+            ax, ay = order_track[j]
+            bx, by = order_track[(j + 1) % len(order_track)]
+            return (bx - ax) * mv[0] + (by - ay) * mv[1] >= 0.0
+
+        def _sweep(x, y, lo, hi, mv=None):
             """Closest approach over a run of legs, coarse then refined."""
-            bi, bd = lo, float("inf")
+            bi, bd = None, float("inf")
             for i in range(lo, hi + 1, COARSE):
                 j = i % len(order_track)
                 dx = order_track[j][0] - x; dy = order_track[j][1] - y
                 d = dx * dx + dy * dy
-                if d < bd: bd, bi = d, i
+                if d < bd and _with(j, mv): bd, bi = d, i
+            if bi is None:                      # nothing faces the right way
+                return _sweep(x, y, lo, hi) if mv is not None else (float("inf"), 0.0)
             best = (float("inf"), 0.0)
             for i in range(bi - COARSE, bi + COARSE + 1):
-                d2, frac = _leg(i % len(order_track), x, y)
+                j = i % len(order_track)
+                if not _with(j, mv):
+                    continue
+                d2, frac = _leg(j, x, y)
                 if d2 < best[0]:
                     best = (d2, frac)
             return best
 
-        def arc_of(x, y, hint=None):
+        # Below this a car has not moved enough for its heading to mean anything
+        # — stationary on the grid, stopped in a pit box — and direction is not
+        # asked for. A safety car lap still covers eight metres in a frame.
+        MOVED = 2.0 * scale
+
+        def arc_of(x, y, hint=None, mv=None):
             """Fraction of a lap at the nearest centreline point, and how far off
             it the car is. The second number separates the pit lane from the
             track: the racing line never strays far from the centreline, so a
             large offset means the car is not racing."""
-            whole = _sweep(x, y, 0, len(order_track) - 1)
+            if mv is not None and (mv[0] * mv[0] + mv[1] * mv[1]) < MOVED * MOVED:
+                mv = None
+            # Only the unrestricted search is given the direction. The hinted one
+            # is already confined to a stretch the car could have reached, which
+            # cannot span both carriageways; the unrestricted one is the way onto
+            # the wrong one, so that is the door to close.
+            whole = _sweep(x, y, 0, len(order_track) - 1, mv)
             if hint is None:
                 return whole[1], math.sqrt(whole[0]) / scale
             # Search only the stretch the car could plausibly have reached. Take
-            # the unrestricted answer instead when it is far better, which is how
-            # a car that has been off the feed for a while finds itself again.
+            # the unrestricted answer instead when it is far better *and* the
+            # hinted one is implausible on its own terms — a car that has been
+            # off the feed for a while is hundreds of metres from where it was
+            # left, and that is what the escape is for.
+            #
+            # The absolute test matters as much as the ratio. Baku runs back
+            # alongside itself for a quarter of the lap with **under ten metres
+            # between the two carriageways**, so a ratio alone will hop a car to
+            # the opposite side of a barrier for being half a metre nearer, and
+            # the hint then holds it there. That put the third, fourth and fifth
+            # finishers at the back of the closing order. Ten metres is also
+            # roughly what a racing line and a pit lane are worth, so the bar is
+            # set well above all three and far below a car that is genuinely
+            # lost.
             at = hint * TLAP
             lo = int((at - REACH) / TLAP * len(order_track))
             hi = int((at + REACH) / TLAP * len(order_track))
             near = _sweep(x, y, lo, hi)
-            if whole[0] * 9.0 < near[0]:
+            if whole[0] * 9.0 < near[0] and math.sqrt(near[0]) / scale > STRAY_M:
                 return whole[1], math.sqrt(whole[0]) / scale
             return near[1], math.sqrt(near[0]) / scale
 
@@ -414,6 +458,14 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                  l["lap_duration"], l["lap_number"]))
     for n in by_driver:
         by_driver[n].sort()
+    # The last lap the feed has for each car. Past the end of it the feed's
+    # number is stale rather than wrong — a car that takes the chequered flag is
+    # issued no row for the slow-down lap, and a car that retires is issued none
+    # at all — so anchoring there would pull a winner back a lap at the moment it
+    # crossed the line, and did: it cost a round its lap count. Inside a lap the
+    # number is good, and a later row is proof the car finished the one before,
+    # so the anchor asks for one or the other and not for both.
+    last_lap = {n: max((x[2] for x in rows), default=0) for n, rows in by_driver.items()}
 
     grid0: list[tuple[float, int]] = []                  # (progress, car) at the lights
     order = [[0] * len(nums) for _ in range(frames)]
@@ -440,10 +492,24 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
     # Counting wraps only works while the positions are continuous. Some rounds
     # arrive with the feed full of holes — nearly two hundred jumps per car at
     # one of them — and a lap missed across a hole is a lap lost for good, by a
-    # different amount for each car, which scrambles the order by the end. So
-    # after any jump the count is re-anchored to the lap number from the feed,
-    # which cannot drift. Only in the middle of a lap: either side of the line
-    # the feed's number and the car's position disagree about which lap it is.
+    # different amount for each car, which scrambles the order by the end. So the
+    # count is re-anchored to the lap number from the feed, which cannot drift.
+    # Only in the middle of a lap: either side of the line the feed's number and
+    # the car's position disagree about which lap it is.
+    #
+    # Continuously, not only after a jump. Anchoring on jumps alone assumes a
+    # wrap can only be lost where the feed visibly breaks, and Baku showed that
+    # is not so: Russell crossed the line on the one frame his position jumped,
+    # so the wrap rule (which needs continuity) and the anchor (which keeps away
+    # from the line) both passed it over, and seven frames later a projection
+    # 34 m off the centreline — he was in the pit lane — fired a backwards wrap
+    # that a forwards one then half-undid. He finished the race one lap short of
+    # himself, which is 0.97 of a lap of progress: not enough to report him
+    # lapped, and enough to sink the race winner to fifteenth. Anchoring every
+    # frame in the safe band makes any such error heal within a few seconds,
+    # whatever caused it. Geometry still owns the lap transition, where the feed
+    # is ambiguous, and the order within a lap; the feed owns the integer — but
+    # only while it is still issuing rows for that car, see last_lap below.
     prev_xy: list[tuple[float, float] | None] = [None] * len(nums)
     LEAP = 3.0 * 120.0 * STEP * scale  # well beyond any car's travel in a frame
     for f in range(frames):
@@ -451,16 +517,23 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
         prog = []
         pit = [False] * len(nums)
         for ci, n in enumerate(nums):
-            ln = 0
+            ln, ln_live = 0, False
             for st, du, num in by_driver[n]:
                 if st <= tsec:
-                    ln = num
+                    # Good while the car is still inside this lap, or while a
+                    # later lap exists to prove it completed this one.
+                    ln, ln_live = num, (num < last_lap[n]
+                                        or (du is not None and tsec < st + du))
                 else:
                     break
 
             gx, gy = xs[f][ci], ys[f][ci]
             if order_track and gx != ABSENT:
-                frac, off = arc_of((gx - cx) * scale, (gy - cy) * scale, prev_frac[ci])
+                here = ((gx - cx) * scale, (gy - cy) * scale)
+                was = prev_xy[ci]
+                frac, off = arc_of(here[0], here[1], prev_frac[ci],
+                                   None if was is None else
+                                   (here[0] - was[0], here[1] - was[1]))
                 offs[f][ci] = off
                 if f == 0:
                     in_pit[ci] = off > PIT_M
@@ -468,8 +541,6 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                     in_pit[ci] = False
                 pit[ci] = in_pit[ci]
 
-                here = ((gx - cx) * scale, (gy - cy) * scale)
-                was = prev_xy[ci]
                 leapt = was is None or math.hypot(here[0] - was[0], here[1] - was[1]) > LEAP
                 prev_xy[ci] = here
 
@@ -478,7 +549,7 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                     # The grid straddles the timing line, so on the opening
                     # frame a car just short of it is a lap behind one past.
                     glap[ci] = (ln - 1) - (1 if f == 0 and frac > 0.5 else 0)
-                elif leapt and ln >= 1 and 0.15 < frac < 0.85 and glap[ci] != ln - 1:
+                elif ln >= 1 and ln_live and 0.15 < frac < 0.85 and glap[ci] != ln - 1:
                     glap[ci] = ln - 1
                 elif not leapt and pv > 0.7 and frac < 0.3:
                     glap[ci] += 1

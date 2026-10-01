@@ -1,4 +1,8 @@
 {
+ "baku": {
+  "frac": 0.015618,
+  "fromRound": 15
+ },
  "catalunya": {
   "frac": 0.021983,
   "fromRound": 7

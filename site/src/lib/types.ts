@@ -44,6 +44,10 @@ export interface Driver {
 export interface Race {
   id: number; year: number; round: number; date: string;
   grandPrixId: string; name: string; shortName: string; officialName: string;
+  /** The country the race was held in, when the Grand Prix is named for a
+   *  different one — 2026's Bahrain Grand Prix was run at Sepang. Null when the
+   *  name and the place agree, which is all but 55 races in the archive. */
+  heldIn: string | null;
   circuitId: string; circuitLayoutId: string;
   courseLength: number | null; turns: number | null;
   laps: number | null; distance: number | null; tier: Tier;

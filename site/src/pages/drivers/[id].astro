@@ -130,7 +130,7 @@ const seasonPoints = years[0]?.points ?? null;
             Best result so far: P{best.pos} at{' '}
             <a href={u(`/races/${best.race.race.year}/${best.race.race.round}/`)}>
               {best.race.race.shortName}
-            </a>.
+            </a>{best.race.race.heldIn && <> in {best.race.race.heldIn}</>}.
           </p>
         )}
       </section>

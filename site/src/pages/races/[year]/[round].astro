@@ -32,10 +32,18 @@ const finished = results.filter((r) => r.posNum != null).length;
     <h1 class="headline" style="margin-top:.3em">{race.shortName}</h1>
     <p class="lead muted" style="margin-top:.7em">{race.officialName}</p>
     <p class="num muted" style="margin-top:.3em">{longDate(race.date)}</p>
+    {/* A Grand Prix keeps its name when it moves, and the name is then the one
+        thing on the page that does not say where the race was. */}
+    {race.heldIn && (
+      <p class="ui muted measure" style="margin-top:.9em">
+        The {race.name}, held in {race.heldIn} — a Grand Prix keeps its name when it
+        moves.
+      </p>
+    )}
 
     {rep && (
       <RaceReplay manifest={rep} base={u(`/replays/${year}-${round}.bin`)}
-                  label={`${race.shortName} ${year}`} />
+                  label={`${race.shortName} ${year}${race.heldIn ? ` · ${race.heldIn}` : ''}`} />
     )}
 
     <hr class="rule" style="margin-top:2.4rem" />

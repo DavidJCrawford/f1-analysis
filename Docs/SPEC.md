@@ -345,6 +345,25 @@ for two constructors in one season, ties broken on countback, and
 retroactively amended classifications. The schema accommodates all of them from
 the start.
 
+**A Grand Prix is not always named for where it was held — BUILT.** 2026's
+round 16 is the Bahrain Grand Prix and it was run at Sepang: the race was pulled
+from its April date and reinstated in Malaysia under its own name. A short label
+reading "Bahrain" on a page that does not also name the circuit then tells a
+reader the wrong country, which is what "Last round — Bahrain" did on the home
+page.
+
+Not a one-off, so not special-cased: **55 of the 1,172 races in the archive are
+named for a country they were not held in** — every San Marino Grand Prix at
+Imola, every Luxembourg Grand Prix at the Nürburgring, the European Grands Prix
+at Valencia and Baku. The emit step compares the Grand Prix's own country with
+the circuit's and carries `heldIn` on the race where they disagree, null where
+they agree. Anywhere the site prints a race's short name without a circuit
+beside it — the home page's last and next round, a driver's best result, the
+replay's own title — it appends the place; the race page says so in a line of
+its own. Where a circuit column is already there, as in the calendar and a
+driver's race-by-race table, nothing is added, because the page already says
+Sepang.
+
 ### 6.5 Payload strategy
 
 Measured figures for one race of 20-car position data:

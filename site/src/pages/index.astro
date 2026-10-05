@@ -63,6 +63,7 @@ const lastWinner = last
         {last ? (
           <p class="lead" style="margin-top:.8em">
             <a href={u(`/races/${year}/${last.round}/`)}>{last.shortName}</a>
+            {last.heldIn && <span class="muted"> in {last.heldIn}</span>}
             <span class="muted num"> · {shortDate(last.date)}</span>
             {lastWinner && (
               <><br /><span class="muted">Won by {lastWinner.driver}</span></>
@@ -78,6 +79,7 @@ const lastWinner = last
         {next ? (
           <p class="lead" style="margin-top:.8em">
             <a href={u(`/races/${year}/${next.round}/`)}>{next.shortName}</a>
+            {next.heldIn && <span class="muted"> in {next.heldIn}</span>}
             <span class="muted num"> · {shortDate(next.date)}</span>
           </p>
         ) : (

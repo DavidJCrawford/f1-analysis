@@ -94,6 +94,25 @@ dname = {d["id"]: d["name"] for d in drivers}
 cname = {c["id"]: c["name"] for c in constructors}
 
 # ── races ───────────────────────────────────────────────────────────────────
+# A Grand Prix is usually named for the country it is held in, and sometimes is
+# not. 2026's Bahrain Grand Prix was pulled from its April date and reinstated
+# at Sepang, keeping its name: "Bahrain" on a page with no circuit beside it
+# then tells a reader the wrong country. It is not a one-off either — 55 races
+# in the archive are named for somewhere they were not held, among them every
+# San Marino Grand Prix at Imola and every Luxembourg Grand Prix at the
+# Nürburgring. So where the Grand Prix's own country and the circuit's disagree,
+# the circuit's is carried on the race and the site says where it actually was.
+_cc = {c["id"]: c["countryId"] for c in circuits}
+
+
+def held_in(r: dict) -> str | None:
+    """The country a race was held in, when the Grand Prix is named for another."""
+    here = _cc.get(r["circuitId"])
+    if not here or here == gp.get(r["grandPrixId"], {}).get("countryId"):
+        return None
+    return countries.get(here, here)
+
+
 races_raw = read("races")
 races = [{
     "id": num(r["id"]), "year": num(r["year"]), "round": num(r["round"]),
@@ -101,6 +120,7 @@ races = [{
     "name": gp.get(r["grandPrixId"], {}).get("fullName") or r["officialName"],
     "shortName": gp.get(r["grandPrixId"], {}).get("name") or r["grandPrixId"],
     "officialName": r["officialName"],
+    "heldIn": held_in(r),
     "circuitId": r["circuitId"], "circuitLayoutId": r["circuitLayoutId"],
     "courseLength": num(r["courseLength"], float), "turns": num(r["turns"]),
     "laps": num(r["laps"]), "distance": num(r["distance"], float),

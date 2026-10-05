@@ -337,7 +337,13 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
             track = [[int(round((x - cx) * scale)), int(round((y - cy) * scale))]
                      for x, y in cl["pts"]]
     except Exception as e:
-        print(f"    track unavailable: {e}")
+        # Not a warning. Without a centreline there is no running order, no lap
+        # count and no start line, so a replay built here is a set of dots that
+        # scores zero against every check — and one dropped circuit took every
+        # round's geometry down this way, quietly, until verify caught it.
+        raise SystemExit(f"    no centreline for {circuit_id}: {e!r}\n"
+                         "    geometry is required to order the field; fix it "
+                         "rather than ship a replay without one")
 
     # Running order comes from where a car actually is on the track, not from
     # how far through its lap time it is. Time-fraction ordering makes a car on
@@ -489,6 +495,22 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
     # then on it is ordered like everyone else.
     PIT_M = 6.0
     in_pit = [False] * len(nums)
+    # ...and measured against the rest of the field, not against the centreline.
+    # Where the centreline comes from MultiViewer it is the middle of the track
+    # and the grid sits on it, so the two are the same thing. Where it is traced
+    # from a fast lap it is a *racing line*, and the grid need not be anywhere
+    # near it: at Sepang every car starts between 12.8 m and 15.2 m off it, in a
+    # band two metres wide. Against a fixed distance that read as twenty-one of
+    # twenty-two cars starting from the pit lane, which emptied the grid, lost
+    # the start line and left the field demoted to the back of its own order.
+    # The field's own median is the honest baseline: a car in the pit lane is
+    # the one that is not with the others, whatever the line is doing.
+    grid_base = 0.0
+    if order_track:
+        _g = sorted(arc_of((xs[0][i] - cx) * scale, (ys[0][i] - cy) * scale)[1]
+                    for i in range(len(nums)) if xs[0][i] != ABSENT)
+        if _g:
+            grid_base = _g[len(_g) // 2]
     # Counting wraps only works while the positions are continuous. Some rounds
     # arrive with the feed full of holes — nearly two hundred jumps per car at
     # one of them — and a lap missed across a hole is a lap lost for good, by a
@@ -536,7 +558,7 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                                    (here[0] - was[0], here[1] - was[1]))
                 offs[f][ci] = off
                 if f == 0:
-                    in_pit[ci] = off > PIT_M
+                    in_pit[ci] = off - grid_base > PIT_M
                 elif in_pit[ci] and off <= PIT_M:
                     in_pit[ci] = False
                 pit[ci] = in_pit[ci]
@@ -698,9 +720,13 @@ def build(year: int, rnd: int, session_key: int, circuit_id: str) -> dict | None
                     break
 
         # A car released from the pit lane after the start never appears in the
-        # pit feed, because it never made a stop.
+        # pit feed, because it never made a stop. Measured against the grid's own
+        # distance from the centreline for the same reason the in-pit flag is —
+        # a traced racing line need not run through the grid, and at Sepang it
+        # does not, which marked all twenty-two cars as pit-lane starts and drew
+        # the whole field hollow with PIT beside it for the first minute.
         for ci in range(len(nums)):
-            if offs[0][ci] > ON_TRACK_M and xs[0][ci] != ABSENT:
+            if offs[0][ci] - grid_base > ON_TRACK_M and xs[0][ci] != ABSENT:
                 mark(ci, *grow(ci, 0), PIT)
 
         # Retirements. The results say who did not make the end and why; the

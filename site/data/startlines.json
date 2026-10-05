@@ -35,6 +35,10 @@
   "frac": 0.053759,
   "fromRound": 13
  },
+ "sepang": {
+  "frac": 0.050707,
+  "fromRound": 16
+ },
  "silverstone": {
   "frac": 0.020598,
   "fromRound": 9

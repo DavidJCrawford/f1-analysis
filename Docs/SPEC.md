@@ -389,7 +389,7 @@ below. A standing start, pit stops, retirements, the chequer.
 ordered cars by lap number plus the fraction of the lap time elapsed, which
 puts a car on a quicker lap ahead of one physically in front of it. Order is
 now taken from arc distance along the centreline. The test is the starting
-grid, which is known independently: 9 of 15 rounds reproduce it exactly and 26
+grid, which is known independently: 9 of 16 rounds reproduce it exactly and 35
 cars across the season are out of place, against an ordering that was
 essentially random before.
 
@@ -467,6 +467,45 @@ Baku's own last two errors are a pair classified **30 milliseconds apart**, whic
 a half-second frame cannot resolve, and a shuffle among cars still eight seconds
 from the flag when the leader took it.
 
+**What a new circuit found.** Round 16 was the Bahrain Grand Prix held at
+Sepang — the race was pulled from April after the 2026 Iran war and reinstated
+in Malaysia under its own name — so it arrived as a circuit with no published
+geometry and a nine-year gap since F1 last raced there. Three faults followed,
+none of them about Sepang.
+
+- *One renamed circuit took every round's geometry down.* F1DB renamed `sochi`
+  to `sirius` at v2026.16.0 — Sochi Autodrom is now the Sirius Autodrom, and the
+  eight Russian Grands Prix re-point with it. The geometry sources still key it
+  as `sochi`, and the length validator indexed the circuit table directly, so it
+  raised `KeyError`. `build()` caught
+  that as "track unavailable", printed one line and **carried on, producing
+  fifteen replays with no centreline at all** — no running order, no lap count,
+  no start line. It is a hard failure now: a replay without geometry is a set
+  of dots that scores zero against every check, and shipping one quietly is
+  worse than not building it. A source offering a circuit the spine does not
+  list is simply dropped, as an unvalidatable outline is everywhere else.
+- *A traced centreline is a racing line, and the grid is not on it.* Sepang's
+  geometry is merged from eight of the winner's laps, which is the same trick
+  used at Madrid. On a flying lap it is excellent — median 0.1 m from the cars,
+  the same as a MultiViewer outline. **On the grid every car sits 12.8–15.2 m
+  off it**, because a car at 300 km/h down the pit straight is not where a
+  stationary car waits for the lights. Two tests assumed otherwise and read the
+  gap as the pit lane: one emptied the grid, losing the start line and demoting
+  the whole field to the back of its own order; the other drew all twenty-two
+  cars hollow with PIT beside them for the first minute. Both now measure a car
+  against **the field's own median** at the lights rather than against the line
+  — a car in the pit lane is the one that is not with the others, whatever the
+  line is doing.
+- *What this does not fix.* Sepang's grid still resolves poorly: 5 of 22 cars in
+  the right slot, and the median gap between them measures 5.4 m where a grid
+  slot is 8. Projecting a car fourteen metres to the side of a line that was
+  smoothed out of a noisy merge is not precise enough to separate slots that
+  close together, and tracing from sixteen or twenty-four laps instead of eight
+  changes nothing while making the length fit worse (2.0% against 0.6%). The
+  round's closing order is exact and both absolutes hold, so this is left as a
+  known limit of traced geometry rather than papered over. **The official grid
+  is what the replay is checked against, so it cannot also be an input.**
+
 **Stoppages are kept but stepped over.** Monaco was red-flagged for 33 minutes.
 The frames are the race and stay, but playback passes over them and says how
 long it was; scrubbing in is left alone, because that is someone looking for
@@ -475,7 +514,7 @@ it.
 **Verification.** `pipeline/verify_replay.py` scores every replay against
 things known independently of it — the starting grid, the classified result,
 and the lap count — and is the reason several of the above were found at all.
-Current: 9 of 15 grids exact, 9 of 15 closing orders exact, 0 cars out of place
+Current: 9 of 16 grids exact, 10 of 16 closing orders exact, 0 cars out of place
 against the start line, 0 lap-counting problems.
 
 ### 6.6.1 The marks — BUILT
@@ -566,8 +605,9 @@ little. 57 KB on average, and a page loads one.
 ### 6.7 Circuit geometry — BUILT
 
 Outlines come from the best source that covers a track: 21 of this season's 23
-from the F1 timing feed via MultiViewer, one traced from a car's own telemetry
-where MultiViewer has none, one from TUMFTM. A 3% length gate rejects a
+from the F1 timing feed via MultiViewer and two traced from a car's own telemetry
+where MultiViewer has none, so every circuit in scope now shares the feed's own
+frame and none falls back to TUMFTM. A 3% length gate rejects a
 mis-joined trace — it caught an Indianapolis oval being matched to the road
 course, and a Barcelona street circuit of two races being matched to Catalunya's
 thirty-six.

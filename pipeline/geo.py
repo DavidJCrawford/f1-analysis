@@ -254,7 +254,11 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
     result, report = {}, []
 
     def err(length: float, cid: str) -> float | None:
-        rec = circuits[cid].get("length")
+        # A geometry source may offer a circuit F1DB no longer lists — it
+        # renamed Sochi to Sirius at v2026.16.0 — and there is then no length to
+        # validate against. None means unvalidatable, which every caller already
+        # treats as "cannot use this candidate" rather than "accept it blind".
+        rec = (circuits.get(cid) or {}).get("length")
         return abs(length - rec * 1000) / (rec * 1000) if rec else None
 
     # bacinger features are keyed by their own id and may name several
@@ -275,6 +279,11 @@ def load_centrelines(verbose: bool = False) -> dict[str, dict]:
             bac_by_cid[cid] = {**feat, "length": length, "lengthError": e}
 
     for cid in sorted(set(mvw) | set(of1) | set(tum) | set(bac_by_cid)):
+        # Nothing downstream can ask for a circuit the spine does not have, and
+        # an outline that cannot be length-checked is exactly the kind this
+        # pipeline refuses elsewhere. Drop it rather than carry it unvalidated.
+        if cid not in circuits:
+            continue
         for cand in (mvw.get(cid), of1.get(cid), tum.get(cid), bac_by_cid.get(cid)):
             if not cand:
                 continue

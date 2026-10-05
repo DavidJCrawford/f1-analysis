@@ -50,7 +50,7 @@ speed — accurate to a median 17 m, and the replay says so on screen.
 highlighted along their full length, an unrolled curvature profile of the lap, and
 where the circuit sits against the rest of the calendar for length and turn count.
 A circuit has a start line and a finish line, and both are drawn where they are far
-enough apart to tell apart — 9 of the 14 raced so far, from 94 m at Baku to
+enough apart to tell apart — 10 of the 15 raced so far, from 94 m at Baku to
 310 m at Monza. Melbourne, Monaco and Montreal paint one line and use it for both.
 
 86 pages. The architecture still supports the full 1950–2026 archive — 1,172 races,
@@ -67,7 +67,7 @@ else gathered, and each source is named with what it actually supplies.
 | [F1DB](https://github.com/f1db/f1db) | CC BY 4.0 | Results, standings, entities and career records, 1950–2026 |
 | [OpenF1](https://openf1.org) | CC BY-NC-SA | Car positions, speed and lap timing — the replays — and team colours |
 | [MultiViewer](https://multiviewer.app) | no terms published | Circuit geometry, official corner positions, finish lines |
-| [TUMFTM](https://github.com/TUMFTM/racetrack-database) | LGPL-3.0 over ODbL | Centrelines where the feed has none. OpenStreetMap-derived |
+| [TUMFTM](https://github.com/TUMFTM/racetrack-database) | LGPL-3.0 over ODbL | Centrelines where the feed has none. OpenStreetMap-derived — currently supplies none |
 | [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT | Outlines where neither covers — and this README's banner |
 | Formula 1 media library · ESPN | **trademarks, no licence** | The constructors' marks, the championship's wordmark, the drivers' portraits and racing numbers, the cars |
 
@@ -124,10 +124,10 @@ and its output is committed as data; see [RUNBOOK.md](Docs/RUNBOOK.md).
 
 **Live**, at [davidjcrawford.github.io/f1-analysis](https://davidjcrawford.github.io/f1-analysis/).
 86 pages build in under a second: the calendar and both championships, 23 circuits,
-11 teams, 23 drivers, and 15 races you can replay.
+11 teams, 23 drivers, and 16 races you can replay.
 
-Every replay is scored before it ships. Currently 9 of 15 reproduce the starting grid
-exactly, 9 of 15 finish in the classified order, and zero have a car out of place
+Every replay is scored before it ships. Currently 9 of 16 reproduce the starting grid
+exactly, 10 of 16 finish in the classified order, and zero have a car out of place
 against the start line or a lap miscounted — the last two being faults rather than
 tolerances.
 
